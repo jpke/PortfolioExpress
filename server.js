@@ -28,6 +28,7 @@ var jsonParser = bodyParser.json()
 // app.use(passport.initialize())
 
 app.get('/posts', function(req, res) {
+  console.log("GET call made to server")
   Post.find({}, function(err, posts) {
     if(err) {
       console.log("Mongo ERROR: ", err)
