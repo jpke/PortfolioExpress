@@ -1,0 +1,27 @@
+{
+  "name": "portfolio_express",
+  "version": "1.0.0",
+  "description": "Backend for portfolio projects",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jpke/PortfolioExpress.git"
+  },
+  "author": "JP",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jpke/PortfolioExpress/issues"
+  },
+  "homepage": "https://github.com/jpke/PortfolioExpress#readme",
+  "dependencies": {
+    "body-parser": "^1.15.2",
+    "dotenv": "^2.0.0",
+    "express": "^4.14.0",
+    "mongoose": "^4.7.5",
+    "passport": "^0.3.2",
+    "passport-http-bearer": "^1.0.1"
+  }
+}
