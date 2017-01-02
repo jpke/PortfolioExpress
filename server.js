@@ -35,9 +35,9 @@ passport.use(new Strategy(
   }
 ))
 app.use(passport.initialize())
-User.find({}).remove().exec()
+// User.find({}).remove().exec()
+// Post.find({}).remove().exec()
 app.post('/users', jsonParser, function(req,res) {
-  console.log('/users endpoint accessed')
   console.log(req.body)
   var name = req.body.name
   var password = req.body.password
@@ -81,12 +81,10 @@ app.post('/users', jsonParser, function(req,res) {
 })
 
 app.get('/users', passport.authenticate('bearer', {session: false}), function(req, res) {
-  console.log("GET /users endpoint accessed")
   return res.status(200).json({message: "Token validated"})
 })
 
 app.get('/posts', function(req, res) {
-  console.log("GET call made to server")
   Post.find({}, function(err, posts) {
     if(err) {
       console.log("Mongo ERROR: ", err)
