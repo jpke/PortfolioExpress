@@ -1,31 +1,89 @@
 var express = require('express')
 var bodyParser = require('body-parser')
 var mongoose = require('mongoose')
+var jwt = require('jsonwebtoken')
 var passport = require('passport')
+var bcrypt = require('bcryptjs')
 var Strategy = require('passport-http-bearer').Strategy
 var Post = require('./models/Post')
+var User = require('./models/User')
 require("dotenv").config({silent: true});
 var DATABASE_URI = process.env.DATABASE_URI
+var TOKENSECRET = process.env.SECRET
 
 var app = express()
 var jsonParser = bodyParser.json()
 
-// passport.serializeUser(function(user, done) {
-//   done(null, user)
-// })
-// passport.deserializeUser(function(user, done) {
-//   done(null, user)
-// })
-// passport.use(new Strategy(
-//   function(token, done) {
-//     User.findOne({token: token}, function(err, user) {
-//       if(err) {return done(err)}
-//       if(!user) {return done(null, false)}
-//       return done(null, user, {scope: 'all'})
-//     })
-//   }
-// ))
-// app.use(passport.initialize())
+passport.serializeUser(function(user, done) {
+  done(null, user)
+})
+passport.deserializeUser(function(user, done) {
+  done(null, user)
+})
+passport.use(new Strategy(
+  function(token, done) {
+    if(token) {
+      jwt.verify(token, TOKENSECRET, function(err, decoded) {
+        if(err) {
+          return done(err)
+        }
+        return done(null, decoded, {scope: 'all'})
+      })
+    } else {
+      return done(null, false)
+    }
+  }
+))
+app.use(passport.initialize())
+User.find({}).remove().exec()
+app.post('/users', jsonParser, function(req,res) {
+  console.log('/users endpoint accessed')
+  console.log(req.body)
+  var name = req.body.name
+  var password = req.body.password
+  bcrypt.genSalt(10, function(err, salt) {
+        if (err) {
+          console.log(err)
+            return res.status(500).json({
+                message: 'Internal server error'
+            });
+        }
+        bcrypt.hash(password, salt, function(err, hash) {
+            if (err) {
+              console.log("!!!", err)
+                return res.status(500).json({
+                    message: 'Internal server error'
+                });
+            }
+            var user = new User({
+                name: name,
+                password: hash
+            });
+
+            user.save(function(err) {
+                if (err) {
+                  console.log("Mongoose: ", err)
+                    return res.status(500).json({
+                        message: 'Internal server error'
+                    });
+                }
+                var token = jwt.sign(user, TOKENSECRET, {
+                  expiresIn: "24h"
+                })
+                return res.status(201).json({
+                  sucess: true,
+                  message: 'Token created',
+                  token: token
+                });
+            });
+        });
+    });
+})
+
+app.get('/users', passport.authenticate('bearer', {session: false}), function(req, res) {
+  console.log("GET /users endpoint accessed")
+  return res.status(200).json({message: "Token validated"})
+})
 
 app.get('/posts', function(req, res) {
   console.log("GET call made to server")
@@ -38,7 +96,7 @@ app.get('/posts', function(req, res) {
   })
 })
 
-app.post('/posts', jsonParser, function(req, res) {
+app.post('/posts', passport.authenticate('bearer', {session:false}), jsonParser, function(req, res) {
   Post.create({
     title: req.body.title,
     description: req.body.description,
