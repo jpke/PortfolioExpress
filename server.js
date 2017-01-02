@@ -40,6 +40,7 @@ app.use(passport.initialize())
 app.post('/users', jsonParser, function(req,res) {
   console.log(req.body)
   var name = req.body.name
+  var email = req.body.email
   var password = req.body.password
   bcrypt.genSalt(10, function(err, salt) {
         if (err) {
@@ -57,6 +58,7 @@ app.post('/users', jsonParser, function(req,res) {
             }
             var user = new User({
                 name: name,
+                email: email,
                 password: hash
             });
 
@@ -82,6 +84,32 @@ app.post('/users', jsonParser, function(req,res) {
 
 app.get('/users', passport.authenticate('bearer', {session: false}), function(req, res) {
   return res.status(200).json({message: "Token validated"})
+})
+
+app.post('/login', jsonParser, function(req, res) {
+  console.log('Login endpoint accessed')
+  var password = req.body.password
+  User.findOne({email: req.body.email}, function(err, user) {
+    if(err) return res.status(500).json({message: 'Internal server error'})
+    if(!user) return res.status(400)
+    user.validatePassword(password, function(err, isValid) {
+      if(err) {
+        console.log("bcrypt error: ", err)
+        return res.status(400)
+      }
+      if(!isValid) {
+        return res.status(400).json({message: 'Incorrect password'})
+      }
+      var token = jwt.sign(user, TOKENSECRET, {
+        expiresIn: "24h"
+      })
+      return res.status(200).json({
+        sucess: true,
+        message: 'Token created',
+        token: token
+      });
+    })
+  })
 })
 
 app.get('/posts', function(req, res) {

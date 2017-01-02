@@ -1,7 +1,12 @@
 var mongoose = require('mongoose')
+var bcrypt = require('bcryptjs')
 
-var userSchema = new mongoose.Schema({
+var UserSchema = new mongoose.Schema({
   name: {
+    type: String,
+    required: true
+  },
+  email: {
     type: String,
     required: true
   },
@@ -11,5 +16,15 @@ var userSchema = new mongoose.Schema({
   }
 })
 
-var User = mongoose.model('User', userSchema)
+UserSchema.methods.validatePassword = function(password, callback) {
+  bcrypt.compare(password, this.password, function(err, isValid) {
+    if(err) {
+      callback(err)
+      return
+    }
+    callback(null, isValid)
+  })
+}
+
+var User = mongoose.model('User', UserSchema)
 module.exports = User
