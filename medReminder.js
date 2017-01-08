@@ -15,7 +15,7 @@ var Post = require('./models/Post')
 var User = require('./models/User')
 var UserMed = require('./models/user-model')
 var Medications = require('./models/medication-model')
-var sendEmail = require('./emailer')
+var {sendEmail} = require('./emailer')
 
 var jsonParser = bodyParser.json()
 

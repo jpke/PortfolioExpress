@@ -15,14 +15,13 @@ app.use(cors());
 app.use('/blog', blog)
 app.use('/med', medReminder)
 
-
-console.log("DATABASE ", process.env.DATABASE_URI || 'mongodb://<database name>')
+// console.log("DATABASE ", process.env.DATABASE_URI || 'mongodb://<database name>')
 mongoose.connect(process.env.DATABASE_URI || 'mongodb://<database name>').then(function() {
   var PORT = process.env.PORT || 8080
   app.listen(PORT)
   console.log("Server is listening on ", PORT)
-  var data = [{data: 1, name: 'JP'}, {data: 2, name: 'Ray'}]
-  console.log(prettyjson.render(data))
+  // var data = [{data: 1, name: 'JP'}, {data: 2, name: 'Ray'}]
+  // console.log(prettyjson.render(data))
 }).catch(function(error) {
   console.log("Server error: ", error)
 })
