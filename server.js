@@ -1,5 +1,6 @@
 var express = require('express')
 var router = express.Router()
+var cors = require('cors');
 var prettyjson = require('prettyjson')
 var blog = require('./blog')
 var medReminder = require('./medReminder')
@@ -9,6 +10,7 @@ var DATABASE_URI = process.env.DATABASE_URI
 var TOKENSECRET = process.env.SECRET
 
 var app = express()
+app.use(cors());
 app.use('/blog', blog)
 app.use('/med', medReminder)
 
