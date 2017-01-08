@@ -1,5 +1,6 @@
 var express = require('express')
 var router = express.Router()
+var cors = require('cors');
 var bodyParser = require('body-parser')
 var mongoose = require('mongoose')
 var jwt = require('jsonwebtoken')
@@ -45,6 +46,7 @@ const strategy = new BasicStrategy(function(username, password, callback) {
 });
 
 passport.use(strategy);
+router.use(cors());
 router.use(passport.initialize());
 
 router.use(express.static(process.env.CLIENT_PATH || "."));
