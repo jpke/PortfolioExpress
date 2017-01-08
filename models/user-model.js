@@ -1,6 +1,6 @@
-import mongoose from'mongoose'
+var mongoose = require('mongoose')
 
-const UserSchema = new mongoose.Schema({
+var UserSchema = new mongoose.Schema({
     username: {
         type: String,
         required: true,
@@ -16,7 +16,7 @@ const UserSchema = new mongoose.Schema({
     }
 });
 
-import bcrypt from 'bcryptjs'
+var bcrypt = require('bcryptjs')
 
 UserSchema.methods.validatePassword = function(password, callback) {
     bcrypt.compare(password, this.password, function(err, isValid) {
@@ -28,6 +28,6 @@ UserSchema.methods.validatePassword = function(password, callback) {
     });
 };
 
-const User = mongoose.model('User', UserSchema);
+var UserMed = mongoose.model('UserMed', UserSchema);
 
-module.exports = User;
+module.exports = UserMed;

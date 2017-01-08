@@ -1,6 +1,6 @@
-import mongoose from 'mongoose'
+var mongoose = require('mongoose')
 
-const MedicationSchema = new mongoose.Schema({
+var MedicationSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         required: true
@@ -31,6 +31,6 @@ const MedicationSchema = new mongoose.Schema({
     }
 });
 
-const Medications = mongoose.model('Medications', MedicationSchema);
+var Medications = mongoose.model('Medications', MedicationSchema);
 
 module.exports = Medications;

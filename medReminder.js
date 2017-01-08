@@ -17,6 +17,8 @@ var UserMed = require('./models/user-model')
 var Medications = require('./models/medication-model')
 var sendEmail = require('./emailer')
 
+var jsonParser = bodyParser.json()
+
 
 const strategy = new BasicStrategy(function(username, password, callback) {
     UserMed.findOne({
@@ -135,7 +137,7 @@ router.post('/user', jsonParser, function(req, res) {
                     password: hash,
                     email: email
                 });
-                UserMed.save(function(err) {
+                user.save(function(err) {
                     if (err) {
                         return res.status(500).json({
                             message: 'Internal server error'
