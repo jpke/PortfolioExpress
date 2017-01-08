@@ -1,4 +1,5 @@
 var express = require('express')
+var router = express.Router()
 var bodyParser = require('body-parser')
 var mongoose = require('mongoose')
 var jwt = require('jsonwebtoken')
@@ -34,10 +35,10 @@ passport.use(new Strategy(
     }
   }
 ))
-app.use(passport.initialize())
+router.use(passport.initialize())
 // User.find({}).remove().exec()
 // Post.find({}).remove().exec()
-app.post('/users', jsonParser, function(req,res) {
+router.post('/users', jsonParser, function(req,res) {
   console.log(req.body)
   var name = req.body.name
   var email = req.body.email
@@ -82,11 +83,11 @@ app.post('/users', jsonParser, function(req,res) {
     });
 })
 
-app.get('/users', passport.authenticate('bearer', {session: false}), function(req, res) {
+router.get('/users', passport.authenticate('bearer', {session: false}), function(req, res) {
   return res.status(200).json({message: "Token validated"})
 })
 
-app.post('/login', jsonParser, function(req, res) {
+router.post('/login', jsonParser, function(req, res) {
   console.log('Login endpoint accessed')
   var password = req.body.password
   User.findOne({email: req.body.email}, function(err, user) {
@@ -115,7 +116,7 @@ app.post('/login', jsonParser, function(req, res) {
   })
 })
 
-app.get('/posts', function(req, res) {
+router.get('/posts', function(req, res) {
   Post.find({}, function(err, posts) {
     if(err) {
       console.log("Mongo ERROR: ", err)
@@ -125,7 +126,7 @@ app.get('/posts', function(req, res) {
   })
 })
 
-app.post('/posts', passport.authenticate('bearer', {session:false}), jsonParser, function(req, res) {
+router.post('/posts', passport.authenticate('bearer', {session:false}), jsonParser, function(req, res) {
   Post.create({
     title: req.body.title,
     description: req.body.description,

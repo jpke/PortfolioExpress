@@ -1,4 +1,5 @@
 var express = require('express')
+var router = express.Router()
 var bodyParser = require('body-parser')
 var mongoose = require('mongoose')
 var jwt = require('jsonwebtoken')
@@ -44,11 +45,9 @@ const strategy = new BasicStrategy(function(username, password, callback) {
 });
 
 passport.use(strategy);
+router.use(passport.initialize());
 
-export const app = express();
-app.use(passport.initialize());
-
-app.use(express.static(process.env.CLIENT_PATH || "."));
+router.use(express.static(process.env.CLIENT_PATH || "."));
 
 
 /**
@@ -61,7 +60,7 @@ app.use(express.static(process.env.CLIENT_PATH || "."));
 * }
 * @return {string} response - response description
 */
-app.post('/user', jsonParser, function(req, res) {
+router.post('/user', jsonParser, function(req, res) {
     if (!req.body) {
         return res.status(400).json({
             message: "No request body"
@@ -157,7 +156,7 @@ app.post('/user', jsonParser, function(req, res) {
 * }
 * @return {string} response - response description
 */
-app.put('/user', jsonParser, passport.authenticate('basic', {session:false}), function(req, res) {
+router.put('/user', jsonParser, passport.authenticate('basic', {session:false}), function(req, res) {
     const user = req.user;
     const updateUser = req.body;
     console.log("user auth info: ", user);
@@ -210,7 +209,7 @@ app.put('/user', jsonParser, passport.authenticate('basic', {session:false}), fu
 * requires authentication
 * @ return {string} response - response description
 */
-app.delete('/user', passport.authenticate('basic', {session:false}), function(req, res) {
+router.delete('/user', passport.authenticate('basic', {session:false}), function(req, res) {
     const user = req.user;
     UserMed.findOne({username: user.username}).exec(function(err, entry) {
         if (err) return res.status(500).json(err);
@@ -241,7 +240,7 @@ app.delete('/user', passport.authenticate('basic', {session:false}), function(re
 *  "taken", false
 * }
 */
-app.get('/medication', passport.authenticate('basic', {session:false}), function(req, res) {
+router.get('/medication', passport.authenticate('basic', {session:false}), function(req, res) {
     Medications.find({userId: req.user._id}).exec(function(err, meds) {
         if (err) {
             return res.status(500).json({message: 'Internal Server Errror'});
@@ -333,7 +332,7 @@ function scheduleReminder(med, entry, day) {
 * }
 * @return {object} medication reminder object
 */
-app.post('/medication', jsonParser, passport.authenticate('basic', {session:false}), function(req, res) {
+router.post('/medication', jsonParser, passport.authenticate('basic', {session:false}), function(req, res) {
     const medication = req.body;
      if (!medication.name) {
         return res.status(422).json({message: 'Missing field: name'});
@@ -421,7 +420,7 @@ app.post('/medication', jsonParser, passport.authenticate('basic', {session:fals
 *}
 * @return {object} med - updated medication reminder
 */
-app.put('/medication', jsonParser, passport.authenticate('basic', {session:false}), function(req, res) {
+router.put('/medication', jsonParser, passport.authenticate('basic', {session:false}), function(req, res) {
   const medication = req.body;
   console.log(medication);
   let updateObject = Medications.findOne({_id: medication._id}, function() {
@@ -455,7 +454,7 @@ app.put('/medication', jsonParser, passport.authenticate('basic', {session:false
 * @param {object} req.body - medication reminder objectID
 * @return {string} response - response description, including number of medication events removed
 */
-app.delete('/medication', jsonParser, passport.authenticate('basic', {session:false}), function(req, res) {
+router.delete('/medication', jsonParser, passport.authenticate('basic', {session:false}), function(req, res) {
     const medication = req.body;
     if (!medication.name) {
         return res.status(422).json({message: 'Missing field: name'});
