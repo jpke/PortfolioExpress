@@ -15,12 +15,13 @@ var TOKENSECRET = process.env.SECRET
 
 var jsonParser = bodyParser.json()
 
-passport.serializeUser(function(user, done) {
-  done(null, user)
-})
-passport.deserializeUser(function(user, done) {
-  done(null, user)
-})
+// passport.serializeUser(function(user, done) {
+//   console.log("USER: ", user);
+//   done(null, user)
+// })
+// passport.deserializeUser(function(user, done) {
+//   done(null, user)
+// })
 passport.use(new Strategy(
   function(token, done) {
     if(token) {
@@ -137,6 +138,14 @@ router.post('/posts', passport.authenticate('bearer', {session:false}), jsonPars
       res.status(500).json('Internal Server Error')
     }
     return res.status(200).json(post)
+  })
+})
+
+router.delete('/posts', passport.authenticate('bearer', {session:false}), jsonParser, function(req, res) {
+  Post.remove({_id: req.body._id}, function(err, post) {
+    if(err) res.status(501).json({"message": "internal server error"});
+
+    res.status(200).json("post deleted");
   })
 })
 
