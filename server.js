@@ -5,6 +5,7 @@ var cors = require('cors');
 var prettyjson = require('prettyjson')
 var blog = require('./blog')
 var medReminder = require('./medReminder')
+var eLearn = require('./eLearn')
 
 require("dotenv").config({silent: true});
 var DATABASE_URI = process.env.DATABASE_URI
@@ -14,6 +15,7 @@ var app = express()
 app.use(cors());
 app.use('/blog', blog)
 app.use('/med', medReminder)
+app.use('/elearn', eLearn)
 
 // console.log("DATABASE ", process.env.DATABASE_URI || 'mongodb://<database name>')
 mongoose.connect(process.env.DATABASE_URI || 'mongodb://<database name>').then(function() {
