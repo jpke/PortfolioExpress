@@ -9,6 +9,7 @@ var Strategy = require('passport-http-bearer').Strategy
 
 var UserElearn = require('./models/UserElearn')
 var Quiz = require('./models/Quiz')
+var Lesson = require('./models/Lesson')
 var quizData = require('./quizData')
 
 require("dotenv").config({silent: true});
@@ -127,6 +128,7 @@ router.post('/login', jsonParser, function(req, res) {
       return res.status(200).json({
         sucess: true,
         _id: user._id,
+        userName: user.name,
         message: 'Token created',
         token: token
       });
@@ -168,6 +170,22 @@ router.delete('/quiz', passport.authenticate('bearer', {session:false}), jsonPar
     if(err) res.status(501).json({"message": "internal server error"});
 
     res.status(200).json("quiz deleted");
+  })
+})
+
+
+//seed lessons
+// Lesson.create({title: "default lesson", created: new Date, lesson: "path to pdf"}, function(err, lesson) {
+//   if(err) console.log("err ", err);
+// });
+
+router.get('/lessons', passport.authenticate('bearer', {session:false}), function(req, res) {
+  Lesson.find({}, function(err, lessons) {
+    if(err) {
+      console.log("Mongo ERROR: ", err)
+      return res.status(500).json('Internal Server Error')
+    }
+    return res.status(200).json(lessons)
   })
 })
 
