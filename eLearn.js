@@ -32,55 +32,72 @@ passport.use(new Strategy(
 ))
 router.use(passport.initialize())
 
-// Seed database
+// Quiz.find({}).remove().exec()
+// // Seed database
 // Quiz.create({title: "default quiz", created: new Date, quiz: quizData}, function(err, quiz) {
 //   if(err) console.log("err ", err);
 //   console.log('Quiz created: ', quiz);
 // })
 
 router.post('/users', jsonParser, function(req,res) {
-  console.log(req.body)
+  console.log("body: ",req.body)
   var name = req.body.name
   var email = req.body.email
   var password = req.body.password
-  bcrypt.genSalt(10, function(err, salt) {
-        if (err) {
-          console.log(err)
-            return res.status(500).json({
-                message: 'Internal server error'
-            });
-        }
-        bcrypt.hash(password, salt, function(err, hash) {
-            if (err) {
-              console.log("!!!", err)
-                return res.status(500).json({
-                    message: 'Internal server error'
-                });
-            }
-            var user = new UserElearn({
-                name: name,
-                email: email,
-                password: hash
-            });
-
-            user.save(function(err) {
-                if (err) {
-                  console.log("Mongoose: ", err)
-                    return res.status(500).json({
-                        message: 'Internal server error'
-                    });
-                }
-                var token = jwt.sign(user, TOKENSECRET, {
-                  expiresIn: "24h"
-                })
-                return res.status(201).json({
-                  sucess: true,
-                  message: 'Token created',
-                  token: token
-                });
-            });
+  UserElearn.findOne({email: email}, function(err, user) {
+    if (err) {
+      console.log("Mongoose: ", err)
+        return res.status(500).json({
+            message: 'Internal server error'
         });
-    });
+    }
+    if(user != null) {
+      console.log("user found by email: ", user);
+      return res.status(400).json({
+        message: "email already associated with an account"
+      });
+    }
+    bcrypt.genSalt(10, function(err, salt) {
+          if (err) {
+            console.log(err)
+              return res.status(500).json({
+                  message: 'Internal server error'
+              });
+          }
+          bcrypt.hash(password, salt, function(err, hash) {
+              if (err) {
+                console.log("!!!", err)
+                  return res.status(500).json({
+                      message: 'Internal server error'
+                  });
+              }
+              var user = new UserElearn({
+                  name: name,
+                  email: email,
+                  password: hash
+              });
+
+              user.save(function(err, user) {
+                  if (err) {
+                    console.log("Mongoose: ", err)
+                      return res.status(500).json({
+                          message: 'Internal server error'
+                      });
+                  }
+                  var token = jwt.sign(user, TOKENSECRET, {
+                    expiresIn: "24h"
+                  })
+                  console.log("user: ", user._id);
+                  return res.status(201).json({
+                    sucess: true,
+                    _id: user._id,
+                    message: 'Token created',
+                    token: token
+                  });
+              });
+          });
+      });
+  })
 })
 
 router.get('/users', passport.authenticate('bearer', {session: false}), function(req, res) {
@@ -109,6 +126,7 @@ router.post('/login', jsonParser, function(req, res) {
       console.log('validated response sent')
       return res.status(200).json({
         sucess: true,
+        _id: user._id,
         message: 'Token created',
         token: token
       });
@@ -126,20 +144,22 @@ router.get('/quiz', passport.authenticate('bearer', {session:false}), function(r
   })
 })
 
-router.post('/quiz', passport.authenticate('bearer', {session:false}), jsonParser, function(req, res) {
+router.post('/quiz/submit', passport.authenticate('bearer', {session:false}), jsonParser, function(req, res) {
+  // console.log("params ", req.params);
+
   Quiz.create({
     title: req.body.title,
     created: new Date,
     quiz: req.body.quiz,
+    instanceOf: req.body.instanceOf,
     user: req.body.user,
-    taken: new Date,
-    passed: req.body.passed
+    score: req.body.score
     }, function(err, post) {
     if(err) {
       console.log("Mongo ERROR: ", err)
       res.status(500).json('Internal Server Error')
     }
-    return res.status(200).json(post)
+    return res.status(200).json({message: "quiz submitted"})
   })
 })
 

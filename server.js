@@ -17,7 +17,8 @@ app.use('/blog', blog)
 app.use('/med', medReminder)
 app.use('/elearn', eLearn)
 
-// console.log("DATABASE ", process.env.DATABASE_URI || 'mongodb://<database name>')
+
+mongoose.Promise = global.Promise;
 mongoose.connect(process.env.DATABASE_URI || 'mongodb://<database name>').then(function() {
   var PORT = process.env.PORT || 8080
   app.listen(PORT)

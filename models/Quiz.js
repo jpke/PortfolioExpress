@@ -13,12 +13,10 @@ var QuizSchema = new mongoose.Schema({
     type: Array,
     required: true
   },
+  instanceOf: mongoose.Schema.Types.ObjectId,
   user: mongoose.Schema.Types.ObjectId,
-  taken: {
-    type: Array
-  },
-  passed: {
-    type: Boolean
+  score: {
+    type: Number
   }
 })
 
