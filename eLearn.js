@@ -7,8 +7,9 @@ var passport = require('passport')
 var bcrypt = require('bcryptjs')
 var Strategy = require('passport-http-bearer').Strategy
 var BoxSDK = require('box-node-sdk')
-// var fs = require('fs')
+var fs = require('fs')
 var base64url = require('base64url')
+var uuid = require('uuid')
 
 var UserElearn = require('./models/UserElearn')
 var Quiz = require('./models/Quiz')
@@ -17,12 +18,59 @@ var quizData = require('./quizData')
 
 require("dotenv").config({silent: true});
 var TOKENSECRET = process.env.SECRET
+var KID = process.env.KID;
 var CLIENT_ID = process.env.BOX_CLIENT_ID;
 var CLIENT_SECRET = process.env.BOX_CLIENT_SECRET;
 var PUBLIC_KEY_ID = process.env.BOX_PUBLIC_KEY_ID;
-var PRIVATE_KEY = process.env.BOX_PRIVATE_KEY;
+// var PRIVATE_KEY = process.env.BOX_PRIVATE_KEY;
 var PRIVATE_KEY_PASSPHRASE = process.env.BOX_PRIVATE_KEY_PASSPHRASE;
-var ENTERPRISE_ID = process.env.BOX_APP_ID;
+var APP_ID = process.env.BOX_APP_ID;
+var ENTERPRISE_ID = process.env.ENTERPRISE_ID;
+
+// var uniqueID = uuid();
+fs.readFile("private_key.pem", 'utf-8', function(err, PRIVATE_KEY) {
+  console.log("KEY: ", PRIVATE_KEY);
+  var claims = {
+      "iss": CLIENT_ID,
+      "sub": ENTERPRISE_ID,
+      "box_sub_type": "enterprise",
+      "aud": "https://api.box.com/oauth2/token",
+      "jti": uuid(),
+      "exp": Date.now() / 1000 | 0 + 60
+  };
+  var options = {
+    algorithm: 'RS256',
+    header: {
+      "alg": "RS256",
+      "typ": "JWT",
+      "kid": APP_ID
+    }
+  };
+  var key = {
+    key: PRIVATE_KEY,
+    passphrase: PRIVATE_KEY_PASSPHRASE
+  };
+  var token = jwt.sign(claims, key, options);
+  console.log("token generated: ", token);
+});
+// console.log("KEY: ", PRIVATE_KEY);
+// var claims = {
+//     "iss": CLIENT_ID,
+//     "sub": ENTERPRISE_ID,
+//     "box_sub_type": "enterprise",
+//     "aud": "https://api.box.com/oauth2/token",
+//     "jti": uuid(),
+//     "exp": Date.now() / 1000 | 0 + 60
+// };
+// var options = {
+//   header: {
+//     "alg": "RS256",
+//     "typ": "JWT",
+//     "kid": APP_ID
+//   }
+// };
+// var token = jwt.sign(claims, PRIVATE_KEY, options);
+// console.log("token generated: ", token);
 
 var jsonParser = bodyParser.json()
 
@@ -191,12 +239,12 @@ router.delete('/quiz', passport.authenticate('bearer', {session:false}), jsonPar
 //link to Box
 // var privateKey = fs.readFile("private_key.pem");
 
-// CLIENT_ID = CLIENT_ID;
-// CLIENT_SECRET = CLIENT_SECRET;
-// PUBLIC_KEY_ID = PUBLIC_KEY_ID;
-// PRIVATE_KEY = base64url(PRIVATE_KEY);
-// PRIVATE_KEY_PASSPHRASE = PRIVATE_KEY_PASSPHRASE;
-//
+CLIENT_ID = CLIENT_ID;
+CLIENT_SECRET = CLIENT_SECRET;
+PUBLIC_KEY_ID = PUBLIC_KEY_ID;
+// PRIVATE_KEY = PRIVATE_KEY;
+PRIVATE_KEY_PASSPHRASE = PRIVATE_KEY_PASSPHRASE;
+
 // var sdk = new BoxSDK({
 //   clientID: CLIENT_ID,
 //   clientSecret: CLIENT_SECRET,
@@ -207,7 +255,7 @@ router.delete('/quiz', passport.authenticate('bearer', {session:false}), jsonPar
 //   }
 // });
 //
-// var box = sdk.getAppAuthClient('enterprise', base64url(ENTERPRISE_ID));
+// var box = sdk.getAppAuthClient('enterprise', ENTERPRISE_ID);
 //
 // box.users.get(box.CURRENT_USER_ID, null, function(err, currentUser) {
 //   if(err) console.log("error: ", err);
