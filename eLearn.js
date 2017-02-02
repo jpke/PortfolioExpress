@@ -8,6 +8,7 @@ var bcrypt = require('bcryptjs')
 var Strategy = require('passport-http-bearer').Strategy
 var BoxSDK = require('box-node-sdk')
 var fs = require('fs')
+var path = require('path')
 var base64url = require('base64url')
 var uuid = require('uuid')
 
@@ -68,27 +69,59 @@ var PRIVATE_KEY = fs.readFileSync("private_key.pem", 'utf-8');
 
   box.users.get(box.CURRENT_USER_ID, null, function(err, currentUser) {
     if(err) console.log("error: ", err);
-    console.log("currentUser: ", currentUser);
+    // console.log("currentUser: ", currentUser);
   });
-// });
-// console.log("KEY: ", PRIVATE_KEY);
-// var claims = {
-//     "iss": CLIENT_ID,
-//     "sub": ENTERPRISE_ID,
-//     "box_sub_type": "enterprise",
-//     "aud": "https://api.box.com/oauth2/token",
-//     "jti": uuid(),
-//     "exp": Date.now() / 1000 | 0 + 60
-// };
-// var options = {
-//   header: {
-//     "alg": "RS256",
-//     "typ": "JWT",
-//     "kid": APP_ID
-//   }
-// };
-// var token = jwt.sign(claims, PRIVATE_KEY, options);
-// console.log("token generated: ", token);
+
+  // box.folders.create('0', "newFolder", function(err, data) {
+  //   if(err) console.log("error: ", err);
+  //   if(data) console.log("data: ", data);
+  //   console.log("complete");
+  // })
+
+  // var stream = fs.createReadStream(path.resolve(__dirname, 'Example PDF.pdf'));
+
+  // box.files.uploadFile('18155048374', "Example PDF2.pdf", stream, function(err, data) {
+  //   if(err) console.log("error: ", err);
+  //   if(data) console.log("data: ", data);
+  //   console.log("complete");
+  // })
+
+  // box.files.update("130865866472", {shared_link: box.accessLevels.DEFAULT}, function(err, link) {
+  //     if(err) console.log("error: ", err);
+  //     if(link) console.log("data: ", link);
+  //     console.log("complete");
+  // })
+
+//   box.folders.get(
+//     '0',
+//     {fields: 'name,shared_link,permissions,collections,sync_state'},
+//     function(err, link) {
+//         if(err) console.log("error: ", err);
+//         if(link) console.log("data: ", link);
+//         console.log("complete");
+//     }
+// );
+
+box.folders.getItems(
+    '18155048374',
+    {
+        fields: 'name,modified_at,size,url,permissions,sync_state',
+        offset: 0,
+        limit: 25
+    },
+    function(err, link) {
+            if(err) console.log("error: ", err);
+            if(link) console.log("data: ", link);
+            console.log("complete");
+        }
+);
+
+  // box.files.getReadStream('130861063664', null, function(err, stream) {
+  //   if(err) console.log("error: ", error);
+  //   var output = fs.createWriteStream('/Users/JP/Desktop/Apps/testDownload.pdf');
+  //   stream.pipe(output);
+  // })
+  // console.log(__dirname);
 
 var jsonParser = bodyParser.json()
 
