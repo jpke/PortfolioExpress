@@ -28,8 +28,8 @@ var APP_ID = process.env.BOX_APP_ID;
 var ENTERPRISE_ID = process.env.ENTERPRISE_ID;
 
 // var uniqueID = uuid();
-fs.readFile("private_key.pem", 'utf-8', function(err, PRIVATE_KEY) {
-  console.log("KEY: ", PRIVATE_KEY);
+// fs.readFile("private_key.pem", 'utf-8', function(err, PRIVATE_KEY) {
+//   console.log("KEY: ", PRIVATE_KEY);
   // var claims = {
   //     "iss": CLIENT_ID,
   //     "sub": ENTERPRISE_ID,
@@ -53,6 +53,7 @@ fs.readFile("private_key.pem", 'utf-8', function(err, PRIVATE_KEY) {
   // var token = jwt.sign(claims, key, options);
   // console.log("token generated: ", token);
 
+var PRIVATE_KEY = fs.readFileSync("private_key.pem", 'utf-8');
   var sdk = new BoxSDK({
     clientID: CLIENT_ID,
     clientSecret: CLIENT_SECRET,
@@ -69,7 +70,7 @@ fs.readFile("private_key.pem", 'utf-8', function(err, PRIVATE_KEY) {
     if(err) console.log("error: ", err);
     console.log("currentUser: ", currentUser);
   });
-});
+// });
 // console.log("KEY: ", PRIVATE_KEY);
 // var claims = {
 //     "iss": CLIENT_ID,
