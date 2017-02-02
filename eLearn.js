@@ -6,6 +6,9 @@ var jwt = require('jsonwebtoken')
 var passport = require('passport')
 var bcrypt = require('bcryptjs')
 var Strategy = require('passport-http-bearer').Strategy
+var BoxSDK = require('box-node-sdk')
+// var fs = require('fs')
+var base64url = require('base64url')
 
 var UserElearn = require('./models/UserElearn')
 var Quiz = require('./models/Quiz')
@@ -14,6 +17,12 @@ var quizData = require('./quizData')
 
 require("dotenv").config({silent: true});
 var TOKENSECRET = process.env.SECRET
+var CLIENT_ID = process.env.BOX_CLIENT_ID;
+var CLIENT_SECRET = process.env.BOX_CLIENT_SECRET;
+var PUBLIC_KEY_ID = process.env.BOX_PUBLIC_KEY_ID;
+var PRIVATE_KEY = process.env.BOX_PRIVATE_KEY;
+var PRIVATE_KEY_PASSPHRASE = process.env.BOX_PRIVATE_KEY_PASSPHRASE;
+var ENTERPRISE_ID = process.env.BOX_APP_ID;
 
 var jsonParser = bodyParser.json()
 
@@ -179,14 +188,40 @@ router.delete('/quiz', passport.authenticate('bearer', {session:false}), jsonPar
 //   if(err) console.log("err ", err);
 // });
 
-router.get('/lessons', passport.authenticate('bearer', {session:false}), function(req, res) {
+//link to Box
+// var privateKey = fs.readFile("private_key.pem");
+
+// CLIENT_ID = CLIENT_ID;
+// CLIENT_SECRET = CLIENT_SECRET;
+// PUBLIC_KEY_ID = PUBLIC_KEY_ID;
+// PRIVATE_KEY = base64url(PRIVATE_KEY);
+// PRIVATE_KEY_PASSPHRASE = PRIVATE_KEY_PASSPHRASE;
+//
+// var sdk = new BoxSDK({
+//   clientID: CLIENT_ID,
+//   clientSecret: CLIENT_SECRET,
+//   appAuth: {
+//     keyID: PUBLIC_KEY_ID,
+//     privateKey: PRIVATE_KEY,
+//     passphrase: PRIVATE_KEY_PASSPHRASE
+//   }
+// });
+//
+// var box = sdk.getAppAuthClient('enterprise', base64url(ENTERPRISE_ID));
+//
+// box.users.get(box.CURRENT_USER_ID, null, function(err, currentUser) {
+//   if(err) console.log("error: ", err);
+//   console.log("currentUser: ", currentUser);
+// });
+
+router.get('/lessons',  function(req, res) {
   Lesson.find({}, function(err, lessons) {
     if(err) {
       console.log("Mongo ERROR: ", err)
       return res.status(500).json('Internal Server Error')
     }
     return res.status(200).json(lessons)
-  })
+  });
 })
 
 module.exports = router
