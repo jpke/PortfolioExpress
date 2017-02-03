@@ -12,6 +12,8 @@ var path = require('path')
 var base64url = require('base64url')
 var uuid = require('uuid')
 
+var prettyjson = require('prettyjson')
+
 var UserElearn = require('./models/UserElearn')
 var Quiz = require('./models/Quiz')
 var Lesson = require('./models/Lesson')
@@ -79,11 +81,10 @@ var PRIVATE_KEY = fs.readFileSync("private_key.pem", 'utf-8');
   // })
 
   // var stream = fs.createReadStream(path.resolve(__dirname, 'Example PDF.pdf'));
-
-  // box.files.uploadFile('18155048374', "Example PDF2.pdf", stream, function(err, data) {
+  //
+  // box.files.uploadFile('18155048374', "Example PDF3.pdf", stream, function(err, data) {
   //   if(err) console.log("error: ", err);
   //   if(data) console.log("data: ", data);
-  //   console.log("complete");
   // })
 
   // box.files.update("130865866472", {shared_link: box.accessLevels.DEFAULT}, function(err, link) {
@@ -102,19 +103,37 @@ var PRIVATE_KEY = fs.readFileSync("private_key.pem", 'utf-8');
 //     }
 // );
 
-box.folders.getItems(
-    '18155048374',
-    {
-        fields: 'name,modified_at,size,url,permissions,sync_state',
-        offset: 0,
-        limit: 25
-    },
-    function(err, link) {
-            if(err) console.log("error: ", err);
-            if(link) console.log("data: ", link);
-            console.log("complete");
-        }
-);
+// box.folders.getItems(
+//     '18155048374',
+//     {
+//         fields: 'name,modified_at,size,url,permissions,sync_state',
+//         offset: 0,
+//         limit: 25
+//     },
+//     function(err, link) {
+//             if(err) console.log("error: ", err);
+//             if(link) console.log("data: ", link);
+//             console.log("complete");
+//         }
+// );
+
+// box.files.getThumbnail('130861063664', null, function(err, response) {
+//
+//     if (err) {
+//         if(err) console.log("error: ", err);
+//     }
+//     if(response.file) {
+//
+//     }
+//
+//     // if (response.location) {
+//     //     // fetch thumbnail from URL
+//     // } else if (response.file) {
+//     //     // use response.file contents as thumbnail
+//     // } else {
+//     //     // no thumbnail available
+//     // }
+// });
 
   // box.files.getReadStream('130861063664', null, function(err, stream) {
   //   if(err) console.log("error: ", error);
@@ -287,40 +306,49 @@ router.delete('/quiz', passport.authenticate('bearer', {session:false}), jsonPar
 //   if(err) console.log("err ", err);
 // });
 
-//link to Box
-// var privateKey = fs.readFile("private_key.pem");
+router.get('/lessons', passport.authenticate('bearer', {session:false}), function(req, res) {
+  box.folders.getItems(
+      '18155048374',
+      {
+          fields: 'name,modified_at,size,url,sync_state',
+          offset: 0,
+          limit: 25
+      },
+      function(err, data) {
+          if(err) {
+            console.log("error: ", err);
+            res.status(500).json('Internal Server Error');
+          } else {
+            console.log("data: ", data);
+            res.status(200).json(data);
+          }
+      }
+  );
+})
 
-CLIENT_ID = CLIENT_ID;
-CLIENT_SECRET = CLIENT_SECRET;
-PUBLIC_KEY_ID = PUBLIC_KEY_ID;
-// PRIVATE_KEY = PRIVATE_KEY;
-PRIVATE_KEY_PASSPHRASE = PRIVATE_KEY_PASSPHRASE;
-
-// var sdk = new BoxSDK({
-//   clientID: CLIENT_ID,
-//   clientSecret: CLIENT_SECRET,
-//   appAuth: {
-//     keyID: PUBLIC_KEY_ID,
-//     privateKey: PRIVATE_KEY,
-//     passphrase: PRIVATE_KEY_PASSPHRASE
-//   }
-// });
-//
-// var box = sdk.getAppAuthClient('enterprise', ENTERPRISE_ID);
-//
-// box.users.get(box.CURRENT_USER_ID, null, function(err, currentUser) {
-//   if(err) console.log("error: ", err);
-//   console.log("currentUser: ", currentUser);
-// });
-
-router.get('/lessons',  function(req, res) {
-  Lesson.find({}, function(err, lessons) {
-    if(err) {
-      console.log("Mongo ERROR: ", err)
-      return res.status(500).json('Internal Server Error')
-    }
-    return res.status(200).json(lessons)
-  });
+router.get(
+  '/lessons/:id',
+  passport.authenticate('bearer', {session:false}),
+  function(req, res) {
+    box.files.update(
+      req.params.id,
+      {
+        shared_link: box.accessLevels.DEFAULT
+      },
+      function(err, link) {
+        if(err) {
+          console.log("error: ", err);
+          res.status(500).json('Internal Server Error');
+        }
+        res.status(200).json({
+          selectedPdf: {
+                          preview: link.shared_link.url,
+                          download: link.shared_link.download_url,
+                          name: link.name,
+                          id: link.id
+                        }
+        });
+    })
 })
 
 module.exports = router
