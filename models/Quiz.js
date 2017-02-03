@@ -1,5 +1,46 @@
 var mongoose = require('mongoose')
 
+var AnswersSchema = new mongoose.Schema({
+  answer: {
+    type: String,
+    required: true
+  },
+  correct: {
+    type: Boolean,
+    required: true
+  }
+})
+
+var QuestionSchema = new mongoose.Schema({
+  question: {
+    type: String,
+    required: true
+  },
+  answers : [AnswersSchema],
+  idSelected: mongoose.Schema.Types.ObjectId,
+  itemSelected: Number,
+  correct: Boolean
+})
+
+var SubmittedQuiz = new mongoose.Schema({
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: true
+  },
+  submitted: {
+    type: Date,
+    required: true
+  },
+  score: {
+    type: Number,
+    required: true
+  },
+  quiz: {
+    type: [QuestionSchema],
+    required: true
+  }
+})
+
 var QuizSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -9,14 +50,16 @@ var QuizSchema = new mongoose.Schema({
     type: Date,
     required: true
   },
-  quiz: {
-    type: Array,
+  items: {
+    type: [QuestionSchema]
+  },
+  minimumScore: {
+    type: Number,
     required: true
   },
-  instanceOf: mongoose.Schema.Types.ObjectId,
-  user: mongoose.Schema.Types.ObjectId,
-  score: {
-    type: Number
+  submitted: {
+    type: [SubmittedQuiz],
+    required: false
   }
 })
 
