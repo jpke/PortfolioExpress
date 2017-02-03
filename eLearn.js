@@ -1,6 +1,7 @@
 var express = require('express')
 var router = express.Router()
 var bodyParser = require('body-parser')
+// var cookieParser = require('cookie-parser')
 var mongoose = require('mongoose')
 var jwt = require('jsonwebtoken')
 var passport = require('passport')
@@ -9,8 +10,6 @@ var Strategy = require('passport-http-bearer').Strategy
 var BoxSDK = require('box-node-sdk')
 var fs = require('fs')
 var path = require('path')
-var base64url = require('base64url')
-var uuid = require('uuid')
 
 var prettyjson = require('prettyjson')
 
@@ -146,6 +145,7 @@ var jsonParser = bodyParser.json()
 
 passport.use(new Strategy(
   function(token, done) {
+    console.log("token: ", token);
     if(token) {
       jwt.verify(token, TOKENSECRET, function(err, decoded) {
         if(err) {
@@ -159,6 +159,7 @@ passport.use(new Strategy(
   }
 ))
 router.use(passport.initialize())
+// router.use(cookieParser())
 
 // Quiz.find({}).remove().exec()
 // // Seed database
@@ -236,7 +237,6 @@ router.post('/login', jsonParser, function(req, res) {
   console.log('elearn Login endpoint accessed')
   var password = req.body.password
   UserElearn.findOne({email: req.body.email}, function(err, user) {
-    console.log('return from mongo', user)
     if(err) return res.status(500).json({message: 'Internal server error'})
     if(!user) return res.status(400)
     user.validatePassword(password, function(err, isValid) {
@@ -252,11 +252,11 @@ router.post('/login', jsonParser, function(req, res) {
         expiresIn: "24h"
       })
       console.log('validated response sent')
-      return res.status(200).json({
-        sucess: true,
+      // var cookies = new Cookies(req,res);
+      // cookies.set("token", token, {httpOnly: false});
+      return res.status(302).json({
         _id: user._id,
         userName: user.name,
-        message: 'Token created',
         token: token
       });
     })
@@ -306,7 +306,10 @@ router.delete('/quiz', passport.authenticate('bearer', {session:false}), jsonPar
 //   if(err) console.log("err ", err);
 // });
 
-router.get('/lessons', passport.authenticate('bearer', {session:false}), function(req, res) {
+router.get('/lessons',
+  passport.authenticate('bearer',
+  {session:false}),
+  function(req, res) {
   box.folders.getItems(
       '18155048374',
       {
@@ -350,5 +353,12 @@ router.get(
         });
     })
 })
+
+router.post('/lessons',
+  function(req, res) {
+    console.log("file?: ", req.post);
+    res.status(201);
+  }
+)
 
 module.exports = router
