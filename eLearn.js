@@ -1,14 +1,17 @@
 var express = require('express')
 var router = express.Router()
 var bodyParser = require('body-parser')
+// var cookieParser = require('cookie-parser')
 var mongoose = require('mongoose')
 var jwt = require('jsonwebtoken')
 var passport = require('passport')
 var bcrypt = require('bcryptjs')
 var Strategy = require('passport-http-bearer').Strategy
 var BoxSDK = require('box-node-sdk')
-// var fs = require('fs')
-var base64url = require('base64url')
+var fs = require('fs')
+var path = require('path')
+
+var prettyjson = require('prettyjson')
 
 var UserElearn = require('./models/UserElearn')
 var Quiz = require('./models/Quiz')
@@ -17,17 +20,132 @@ var quizData = require('./quizData')
 
 require("dotenv").config({silent: true});
 var TOKENSECRET = process.env.SECRET
+var KID = process.env.KID;
 var CLIENT_ID = process.env.BOX_CLIENT_ID;
 var CLIENT_SECRET = process.env.BOX_CLIENT_SECRET;
 var PUBLIC_KEY_ID = process.env.BOX_PUBLIC_KEY_ID;
-var PRIVATE_KEY = process.env.BOX_PRIVATE_KEY;
+// var PRIVATE_KEY = process.env.BOX_PRIVATE_KEY;
 var PRIVATE_KEY_PASSPHRASE = process.env.BOX_PRIVATE_KEY_PASSPHRASE;
-var ENTERPRISE_ID = process.env.BOX_APP_ID;
+var APP_ID = process.env.BOX_APP_ID;
+var ENTERPRISE_ID = process.env.ENTERPRISE_ID;
+
+// var uniqueID = uuid();
+// fs.readFile("private_key.pem", 'utf-8', function(err, PRIVATE_KEY) {
+//   console.log("KEY: ", PRIVATE_KEY);
+  // var claims = {
+  //     "iss": CLIENT_ID,
+  //     "sub": ENTERPRISE_ID,
+  //     "box_sub_type": "enterprise",
+  //     "aud": "https://api.box.com/oauth2/token",
+  //     "jti": uuid(),
+  //     "exp": Date.now() / 1000 | 0 + 60
+  // };
+  // var options = {
+  //   algorithm: 'RS256',
+  //   header: {
+  //     "alg": "RS256",
+  //     "typ": "JWT",
+  //     "kid": APP_ID
+  //   }
+  // };
+  // var key = {
+  //   key: PRIVATE_KEY,
+  //   passphrase: PRIVATE_KEY_PASSPHRASE
+  // };
+  // var token = jwt.sign(claims, key, options);
+  // console.log("token generated: ", token);
+
+var PRIVATE_KEY = fs.readFileSync("private_key.pem", 'utf-8');
+  var sdk = new BoxSDK({
+    clientID: CLIENT_ID,
+    clientSecret: CLIENT_SECRET,
+    appAuth: {
+      keyID: PUBLIC_KEY_ID,
+      privateKey: PRIVATE_KEY,
+      passphrase: PRIVATE_KEY_PASSPHRASE
+    }
+  });
+
+  var box = sdk.getAppAuthClient('enterprise', ENTERPRISE_ID);
+
+  box.users.get(box.CURRENT_USER_ID, null, function(err, currentUser) {
+    if(err) console.log("error: ", err);
+    // console.log("currentUser: ", currentUser);
+  });
+
+  // box.folders.create('0', "newFolder", function(err, data) {
+  //   if(err) console.log("error: ", err);
+  //   if(data) console.log("data: ", data);
+  //   console.log("complete");
+  // })
+
+  // var stream = fs.createReadStream(path.resolve(__dirname, 'Example PDF.pdf'));
+  //
+  // box.files.uploadFile('18155048374', "Example PDF3.pdf", stream, function(err, data) {
+  //   if(err) console.log("error: ", err);
+  //   if(data) console.log("data: ", data);
+  // })
+
+  // box.files.update("130865866472", {shared_link: box.accessLevels.DEFAULT}, function(err, link) {
+  //     if(err) console.log("error: ", err);
+  //     if(link) console.log("data: ", link);
+  //     console.log("complete");
+  // })
+
+//   box.folders.get(
+//     '0',
+//     {fields: 'name,shared_link,permissions,collections,sync_state'},
+//     function(err, link) {
+//         if(err) console.log("error: ", err);
+//         if(link) console.log("data: ", link);
+//         console.log("complete");
+//     }
+// );
+
+// box.folders.getItems(
+//     '18155048374',
+//     {
+//         fields: 'name,modified_at,size,url,permissions,sync_state',
+//         offset: 0,
+//         limit: 25
+//     },
+//     function(err, link) {
+//             if(err) console.log("error: ", err);
+//             if(link) console.log("data: ", link);
+//             console.log("complete");
+//         }
+// );
+
+// box.files.getThumbnail('130861063664', null, function(err, response) {
+//
+//     if (err) {
+//         if(err) console.log("error: ", err);
+//     }
+//     if(response.file) {
+//
+//     }
+//
+//     // if (response.location) {
+//     //     // fetch thumbnail from URL
+//     // } else if (response.file) {
+//     //     // use response.file contents as thumbnail
+//     // } else {
+//     //     // no thumbnail available
+//     // }
+// });
+
+  // box.files.getReadStream('130861063664', null, function(err, stream) {
+  //   if(err) console.log("error: ", error);
+  //   var output = fs.createWriteStream('/Users/JP/Desktop/Apps/testDownload.pdf');
+  //   stream.pipe(output);
+  // })
+  // console.log(__dirname);
 
 var jsonParser = bodyParser.json()
 
 passport.use(new Strategy(
   function(token, done) {
+    console.log("token: ", token);
     if(token) {
       jwt.verify(token, TOKENSECRET, function(err, decoded) {
         if(err) {
@@ -41,6 +159,7 @@ passport.use(new Strategy(
   }
 ))
 router.use(passport.initialize())
+// router.use(cookieParser())
 
 // Quiz.find({}).remove().exec()
 // // Seed database
@@ -118,7 +237,6 @@ router.post('/login', jsonParser, function(req, res) {
   console.log('elearn Login endpoint accessed')
   var password = req.body.password
   UserElearn.findOne({email: req.body.email}, function(err, user) {
-    console.log('return from mongo', user)
     if(err) return res.status(500).json({message: 'Internal server error'})
     if(!user) return res.status(400)
     user.validatePassword(password, function(err, isValid) {
@@ -134,11 +252,11 @@ router.post('/login', jsonParser, function(req, res) {
         expiresIn: "24h"
       })
       console.log('validated response sent')
-      return res.status(200).json({
-        sucess: true,
+      // var cookies = new Cookies(req,res);
+      // cookies.set("token", token, {httpOnly: false});
+      return res.status(302).json({
         _id: user._id,
         userName: user.name,
-        message: 'Token created',
         token: token
       });
     })
@@ -188,40 +306,59 @@ router.delete('/quiz', passport.authenticate('bearer', {session:false}), jsonPar
 //   if(err) console.log("err ", err);
 // });
 
-//link to Box
-// var privateKey = fs.readFile("private_key.pem");
-
-// CLIENT_ID = CLIENT_ID;
-// CLIENT_SECRET = CLIENT_SECRET;
-// PUBLIC_KEY_ID = PUBLIC_KEY_ID;
-// PRIVATE_KEY = base64url(PRIVATE_KEY);
-// PRIVATE_KEY_PASSPHRASE = PRIVATE_KEY_PASSPHRASE;
-//
-// var sdk = new BoxSDK({
-//   clientID: CLIENT_ID,
-//   clientSecret: CLIENT_SECRET,
-//   appAuth: {
-//     keyID: PUBLIC_KEY_ID,
-//     privateKey: PRIVATE_KEY,
-//     passphrase: PRIVATE_KEY_PASSPHRASE
-//   }
-// });
-//
-// var box = sdk.getAppAuthClient('enterprise', base64url(ENTERPRISE_ID));
-//
-// box.users.get(box.CURRENT_USER_ID, null, function(err, currentUser) {
-//   if(err) console.log("error: ", err);
-//   console.log("currentUser: ", currentUser);
-// });
-
-router.get('/lessons',  function(req, res) {
-  Lesson.find({}, function(err, lessons) {
-    if(err) {
-      console.log("Mongo ERROR: ", err)
-      return res.status(500).json('Internal Server Error')
-    }
-    return res.status(200).json(lessons)
-  });
+router.get('/lessons',
+  passport.authenticate('bearer',
+  {session:false}),
+  function(req, res) {
+  box.folders.getItems(
+      '18155048374',
+      {
+          fields: 'name,modified_at,size,url,sync_state',
+          offset: 0,
+          limit: 25
+      },
+      function(err, data) {
+          if(err) {
+            console.log("error: ", err);
+            res.status(500).json('Internal Server Error');
+          } else {
+            console.log("data: ", data);
+            res.status(200).json(data);
+          }
+      }
+  );
 })
+
+router.get(
+  '/lessons/:id',
+  passport.authenticate('bearer', {session:false}),
+  function(req, res) {
+    box.files.update(
+      req.params.id,
+      {
+        shared_link: box.accessLevels.DEFAULT
+      },
+      function(err, link) {
+        if(err) {
+          console.log("error: ", err);
+          res.status(500).json('Internal Server Error');
+        }
+        res.status(200).json({
+          selectedPdf: {
+                          preview: link.shared_link.url,
+                          download: link.shared_link.download_url,
+                          name: link.name,
+                          id: link.id
+                        }
+        });
+    })
+})
+
+router.post('/lessons',
+  function(req, res) {
+    console.log("file?: ", req.post);
+    res.status(201);
+  }
+)
 
 module.exports = router
