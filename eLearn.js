@@ -13,9 +13,9 @@ var path = require('path')
 
 var prettyjson = require('prettyjson')
 
+var Course = require('./models/Course')
 var UserElearn = require('./models/UserElearn')
 var Quiz = require('./models/Quiz')
-var Lesson = require('./models/Lesson')
 var quizData = require('./quizData')
 
 require("dotenv").config({silent: true});
@@ -145,12 +145,13 @@ var jsonParser = bodyParser.json()
 
 passport.use(new Strategy(
   function(token, done) {
-    console.log("token: ", token);
+    // console.log("token: ", token);
     if(token) {
       jwt.verify(token, TOKENSECRET, function(err, decoded) {
         if(err) {
           return done(err)
         }
+        // console.log("token decoded: ", decoded);
         return done(null, decoded, {scope: 'all'})
       })
     } else {
@@ -163,10 +164,21 @@ router.use(passport.initialize())
 
 // Quiz.find({}).remove().exec()
 // // Seed database
-// Quiz.create({title: "default quiz", created: new Date, quiz: quizData}, function(err, quiz) {
-//   if(err) console.log("err ", err);
-//   console.log('Quiz created: ', quiz);
+// Quiz.create(
+//   {
+//     title: "default quiz",
+//     created: new Date,
+//     items: quizData,
+//     minimumScore: 2,
+//   }, function(err, quiz) {
+//     if(err) console.log("err ", err);
+//     console.log('Quiz created: ', quiz);
 // })
+Quiz.findOne({}, {submitted: 0}, function(err, data) {
+  if(err) console.log("error: ", err);
+
+  console.log("data: ", data);
+});
 
 router.post('/users', jsonParser, function(req,res) {
   console.log("body: ",req.body)
@@ -203,9 +215,15 @@ router.post('/users', jsonParser, function(req,res) {
               var user = new UserElearn({
                   name: name,
                   email: email,
-                  password: hash
+                  password: hash,
+                  courses: [{
+                    name: 'default quiz',
+                    id: '58950e41c435321ae0f10a69',
+                    admin: true}]
               });
-
+              var token = jwt.sign(user, TOKENSECRET, {
+                expiresIn: "24h"
+              })
               user.save(function(err, user) {
                   if (err) {
                     console.log("Mongoose: ", err)
@@ -213,13 +231,11 @@ router.post('/users', jsonParser, function(req,res) {
                           message: 'Internal server error'
                       });
                   }
-                  var token = jwt.sign(user, TOKENSECRET, {
-                    expiresIn: "24h"
-                  })
-                  console.log("user: ", user._id);
+                  console.log("user: ", user);
                   return res.status(201).json({
                     sucess: true,
                     _id: user._id,
+                    courses: user.courses,
                     message: 'Token created',
                     token: token
                   });
@@ -257,38 +273,64 @@ router.post('/login', jsonParser, function(req, res) {
       return res.status(302).json({
         _id: user._id,
         userName: user.name,
+        courses: user.courses,
         token: token
       });
     })
   })
 })
 
-router.get('/quiz', passport.authenticate('bearer', {session:false}), function(req, res) {
-  Quiz.findOne({}, function(err, quiz) {
+router.get('/quiz/:id', passport.authenticate('bearer', {session:false}), function(req, res) {
+  Quiz.findOne({_id: req.params.id}, {submitted: 0}, function(err, quiz) {
     if(err) {
       console.log("Mongo ERROR: ", err)
       return res.status(500).json('Internal Server Error')
     }
+    console.log("Quiz sent: ", quiz);
     return res.status(200).json(quiz)
+  })
+})
+
+router.put('/quiz/:id', passport.authenticate('bearer', {session: false}), function(req, res) {
+console.log("token decoded: ", prettyjson.render(req.user._doc.admin[0].isAdmin))
+  var isAdmin = req.user._doc.admin[0].isAdmin;
+  if(!isAdmin) return res.status(401).json('admin privileges needed to edit quizes')
+  Quiz.find({_id: req.params.id}, function(err, quiz) {
+    if(err) {
+      console.log('Mongo error ', err)
+      return res.status(500).json('Internal Server Error')
+    }
+
   })
 })
 
 router.post('/quiz/submit', passport.authenticate('bearer', {session:false}), jsonParser, function(req, res) {
   // console.log("params ", req.params);
+  // score
+  let quizData = req.body.quizData;
+  let score = quizData.map(question => {
+    return question.correct ? 1 : 0;
+  });
+  score = score.reduce((a,b) => {return a + b}, 0);
 
-  Quiz.create({
-    title: req.body.title,
-    created: new Date,
-    quiz: req.body.quiz,
-    instanceOf: req.body.instanceOf,
-    user: req.body.user,
-    score: req.body.score
+  Quiz.findOneAndUpdate({_id: req.body.quiz_Id},
+    {$push:
+      {submitted:
+        {
+          user: req.body.user_Id,
+          submitted: new Date,
+          score: score,
+          content: quizData
+        }
+      }
     }, function(err, post) {
     if(err) {
       console.log("Mongo ERROR: ", err)
       res.status(500).json('Internal Server Error')
+    } else {
+      console.log("quiz submitted");
+      return res.status(200).json({message: "quiz submitted", score: score})
     }
-    return res.status(200).json({message: "quiz submitted"})
   })
 })
 
@@ -300,16 +342,11 @@ router.delete('/quiz', passport.authenticate('bearer', {session:false}), jsonPar
   })
 })
 
-
-//seed lessons
-// Lesson.create({title: "default lesson", created: new Date, lesson: "path to pdf"}, function(err, lesson) {
-//   if(err) console.log("err ", err);
-// });
-
 router.get('/lessons',
   passport.authenticate('bearer',
   {session:false}),
   function(req, res) {
+    //box folder id is first arg
   box.folders.getItems(
       '18155048374',
       {
@@ -354,6 +391,7 @@ router.get(
     })
 })
 
+//for file upload- work in progress
 router.post('/lessons',
   function(req, res) {
     console.log("file?: ", req.post);
