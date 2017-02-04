@@ -1,16 +1,21 @@
 var mongoose = require('mongoose')
 var Schema = mongoose.Schema;
-// var Course = require('./Course')
 
+var Admin = new Schema({
+  user: {
+    type: Schema.Types.ObjectId,
+    required: true
+  }
+})
 //lessons are stored in BOX, their BOX folder ids are stored here
-var LessonFolder = new Schema({
+var Lessons = new Schema({
   lesson: {
     type: String,
     required: true
   }
 })
 
-var QuizCourse = new Schema({
+var Quiz = new Schema({
   quiz: {
     type: Schema.Types.ObjectId,
     ref: 'Quiz'
@@ -23,11 +28,11 @@ var CourseSchema = new Schema({
     required: true
   },
   admin: {
-    type: Boolean,
+    type: [Admin],
     required: true
   },
-  lessonFolders: [LessonFolder],
-  quizzes: [QuizCourse]
+  lessonFolders: [Lessons],
+  quizzes: [Quiz]
 })
 
 var Course = mongoose.model('Course', CourseSchema)
