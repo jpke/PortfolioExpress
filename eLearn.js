@@ -13,9 +13,9 @@ var path = require('path')
 
 var prettyjson = require('prettyjson')
 
+var Course = require('./models/Course')
 var UserElearn = require('./models/UserElearn')
 var Quiz = require('./models/Quiz')
-var Lesson = require('./models/Lesson')
 var quizData = require('./quizData')
 
 require("dotenv").config({silent: true});
@@ -342,16 +342,11 @@ router.delete('/quiz', passport.authenticate('bearer', {session:false}), jsonPar
   })
 })
 
-
-//seed lessons
-// Lesson.create({title: "default lesson", created: new Date, lesson: "path to pdf"}, function(err, lesson) {
-//   if(err) console.log("err ", err);
-// });
-
 router.get('/lessons',
   passport.authenticate('bearer',
   {session:false}),
   function(req, res) {
+    //box folder id is first arg
   box.folders.getItems(
       '18155048374',
       {

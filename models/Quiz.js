@@ -1,4 +1,21 @@
-var mongoose = require('mongoose')
+var mongoose = require('mongoose'), Schema = mongoose.Schema
+// var UserElearn = require('./UserElearn')
+// var Course = require('./Course')
+
+// lessons store in BOX, can reference their ids and titles here for quiz submission records
+var Lesson = new Schema({
+  id: String,
+  title: String
+})
+
+var CourseQuiz = new Schema({
+  id: {
+    type: Schema.Types.ObjectId,
+    ref: 'Course',
+    required: true
+  },
+  lessons: [Lesson]
+})
 
 var AnswersSchema = new mongoose.Schema({
   answer: {
@@ -17,19 +34,24 @@ var QuestionSchema = new mongoose.Schema({
     required: true
   },
   answers : [AnswersSchema],
-  idSelected: mongoose.Schema.Types.ObjectId,
+  idSelected: Schema.Types.ObjectId,
   itemSelected: Number,
   correct: Boolean
 })
 
 var SubmittedQuiz = new mongoose.Schema({
   user: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: Schema.Types.ObjectId,
+    ref: 'UserElearn',
     required: true
+  },
+  course: {
+    type: Schema.Types.ObjectId,
+    ref: 'Course'
   },
   submitted: {
     type: Date,
-    required: true
+    default: Date.now
   },
   score: {
     type: Number,
@@ -48,8 +70,9 @@ var QuizSchema = new mongoose.Schema({
   },
   created: {
     type: Date,
-    required: true
+    default: Date.now
   },
+  courses: [CourseQuiz],
   items: {
     type: [QuestionSchema]
   },

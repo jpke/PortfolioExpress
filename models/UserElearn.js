@@ -1,22 +1,15 @@
-var mongoose = require('mongoose')
+var mongoose = require('mongoose'), Schema = mongoose.Schema
 var bcrypt = require('bcryptjs')
+// var Course = require('./Course')
 
-var CoursesSchema = new mongoose.Schema({
-  id: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true
-  },
-  name: {
-    type: String,
-    required: true
-  },
-  admin: {
-    type: Boolean,
-    required: true
+var CourseUser = new Schema({
+  course: {
+    type: Schema.Types.ObjectId,
+    ref: 'Course'
   }
 })
 
-var UserSchema = new mongoose.Schema({
+var UserSchema = new Schema({
   name: {
     type: String,
     required: true
@@ -29,7 +22,7 @@ var UserSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  courses: [CoursesSchema]
+  courses: [CourseUser]
 })
 
 UserSchema.methods.validatePassword = function(password, callback) {
