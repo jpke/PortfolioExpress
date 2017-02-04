@@ -67,80 +67,56 @@ passport.use(new Strategy(
   }
 ))
 router.use(passport.initialize())
-// router.use(cookieParser())
-// UserElearn.find({}, function(err, user) {
-//   if(err) {
-//     console.log("error: ", err);
-//   } else {
-//     console.log("user found: ", user);
-//   }
-// });
-Quiz.find({}).remove().exec()
-Course.find({}).remove().exec();
-// Seed database
+
+//seed database, assume default user already created
 var quizData = require('./quizData')
-Course.create({
-  name: "Default Course",
-  admin: {user: "58950e94e5404a1afa23fe2a"}
-}, function(err, course) {
-  if(err) console.log("error in course: ", err);
-  else {
-    console.log("Course created!: ", course)
-    var quiz = new Quiz();
-    quiz.title = "Default Quiz";
-    quiz.courses = course._id;
-    quiz.items = quizData;
-    quiz.minimumScore = 2;
-    quiz.save().then(function(quiz, err) {
-      if(err) {
-        console.log("error quiz: ", err);
-      } else {
-        console.log("Quiz saved: ", quiz);
-      }
-    })
-    .then(
-      UserElearn.find({}, function(err, user) {
-        if(err) {
-          console.log("error: ", err);
-        } else {
-          console.log("user found: ", user);
-        }
-      })
-    ).then(function(user, err) {
-      if(err) {console.log("error user: ", err)}
-      else {
-        console.log("User found: ", user);
-        Course.findOneAndUpdate({_id: course._id},
-          {
-            $admin: {$push: {user: user._id}},
-            $quizzes: {$push: {quiz: quiz._id}}
-          },
-          {new: true},
-          function(err, course) {
-            if(err) {console.log('error update: ', err)}
-            else {
-              console.log("Course admin and quiz updated: ", course);
-            }
-          })
-      }
-    })
-  }
+var rQuiz = Quiz.find({}).remove().exec()
+.then(function(){
+  return Course.find({}).remove().exec();
 })
-// Quiz.create(
-//   {
-//     title: "default quiz",
-//     created: new Date,
-//     items: quizData,
-//     minimumScore: 2,
-//   }, function(err, quiz) {
-//     if(err) console.log("err ", err);
-//     console.log('Quiz created: ', quiz);
-// })
-// Quiz.findOne({}, {submitted: 0}, function(err, data) {
-//   if(err) console.log("error: ", err);
-//
-//   console.log("data: ", data);
-// });
+.then(function() {
+  var course = new Course();
+  course.name = "Default Course",
+  course.admin = {
+    user: "58950e94e5404a1afa23fe2a"
+  }
+  return course.save();
+})
+.then(function(course) {
+  console.log("course_id: ", course);
+  var nQuiz = new Quiz();
+  nQuiz.title = "Default Quiz";
+  nQuiz.courses.push({id: course._id});
+  nQuiz.items = quizData;
+  nQuiz.minimumScore = 2;
+  return nQuiz.save().then(function(quiz) {return [course, quiz]});
+})
+.then(function(stateArray) {
+  return UserElearn.findOne({email: "jpearnest08@gmail.com"})
+  .exec().then(function(user) {
+    console.log("user!: ", user);
+    stateArray.push(user)
+    return stateArray
+  });
+})
+.then(function(stateArray) {
+  var course = stateArray[0];
+  var quiz = stateArray[1];
+  var user = stateArray[2];
+  course.name = course.name;
+  course.admin.push({user: user._id});
+  course.quizzes.push({quiz: quiz._id});
+  return course.save().then(function(course) {
+    stateArray[0] = course;
+    return stateArray;
+  })
+})
+.then(function(stateArray) {
+  console.log("Course updated ", stateArray);
+})
+.catch(function(err) {
+  console.log("error: ", err);
+});
 
 router.post('/users', jsonParser, function(req,res) {
   console.log("body: ",req.body)
