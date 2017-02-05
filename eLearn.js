@@ -68,55 +68,68 @@ passport.use(new Strategy(
 ))
 router.use(passport.initialize())
 
-//seed database, assume default user already created
-var quizData = require('./quizData')
-var rQuiz = Quiz.find({}).remove().exec()
-.then(function(){
-  return Course.find({}).remove().exec();
-})
-.then(function() {
-  var course = new Course();
-  course.name = "Default Course",
-  course.admin = {
-    user: "58950e94e5404a1afa23fe2a"
-  }
-  return course.save();
-})
-.then(function(course) {
-  console.log("course_id: ", course);
-  var nQuiz = new Quiz();
-  nQuiz.title = "Default Quiz";
-  nQuiz.courses.push({id: course._id});
-  nQuiz.items = quizData;
-  nQuiz.minimumScore = 2;
-  return nQuiz.save().then(function(quiz) {return [course, quiz]});
-})
-.then(function(stateArray) {
-  return UserElearn.findOne({email: "jpearnest08@gmail.com"})
-  .exec().then(function(user) {
-    console.log("user!: ", user);
-    stateArray.push(user)
-    return stateArray
-  });
-})
-.then(function(stateArray) {
-  var course = stateArray[0];
-  var quiz = stateArray[1];
-  var user = stateArray[2];
-  course.name = course.name;
-  course.admin.push({user: user._id});
-  course.quizzes.push({quiz: quiz._id});
-  return course.save().then(function(course) {
-    stateArray[0] = course;
-    return stateArray;
-  })
-})
-.then(function(stateArray) {
-  console.log("Course updated ", stateArray);
-})
-.catch(function(err) {
-  console.log("error: ", err);
-});
+// seed database, assume default user already created
+// var quizData = require('./quizData')
+// var rQuiz = Quiz.find({}).remove().exec()
+// .then(function(){
+//   return Course.find({}).remove().exec();
+// })
+// .then(function() {
+//   return UserElearn.findOne({email: "jpearnest08@gmail.com"}).exec()
+// })
+// .then(function(user) {
+//   var course = new Course();
+//   course.name = "Default Course";
+//   course.admin = user._id;
+//   return course.save().then(function(course) {return [user, course]});
+// })
+// .then(function(state) {
+//   var user = state[0];
+//   var course = state[1];
+//   user.courses.push(course._id);
+//   return user.save().then(function(user) {
+//     state[0] = user;
+//     return state;
+//   });
+// })
+// .then(function(state) {
+//   var quiz = new Quiz();
+//   quiz.title = "Default Quiz";
+//   quiz.courses.push({id: state[1]._id});
+//   quiz.items = quizData;
+//   quiz.minimumScore = 2;
+//   return quiz.save().then(function(quiz) {
+//     state.push(quiz)
+//     return state;
+//   });
+// })
+// .then(function(state) {
+//   var user = state[0];
+//   var course = state[1];
+//   var quiz = state[2];
+//   course.name = course.name;
+//   course.quizzes.push(quiz._id);
+//   return course.save().then(function(course) {
+//     state[1] = course;
+//     return state;
+//   })
+// })
+// .then(function(stateArray) {
+//   console.log("Course updated ", stateArray);
+// })
+// .catch(function(err) {
+//   console.log("error: ", err);
+// });
+
+// UserElearn.findOne({email: "jpearnest08@gmail.com"})
+//   .populate('courses')
+//   .exec()
+//   .then(function(user) {
+//     console.log("user courses: ", user.courses);
+//   })
+//   .catch(function(err) {
+//     console.log("error: ", err);
+//   });
 
 router.post('/users', jsonParser, function(req,res) {
   console.log("body: ",req.body)
@@ -153,11 +166,7 @@ router.post('/users', jsonParser, function(req,res) {
               var user = new UserElearn({
                   name: name,
                   email: email,
-                  password: hash,
-                  courses: [{
-                    name: 'default quiz',
-                    id: '58950e41c435321ae0f10a69',
-                    admin: true}]
+                  password: hash
               });
               var token = jwt.sign(user, TOKENSECRET, {
                 expiresIn: "24h"
@@ -171,10 +180,9 @@ router.post('/users', jsonParser, function(req,res) {
                   }
                   console.log("user: ", user);
                   return res.status(201).json({
-                    sucess: true,
                     _id: user._id,
+                    name: user.name,
                     courses: user.courses,
-                    message: 'Token created',
                     token: token
                   });
               });
@@ -190,9 +198,12 @@ router.get('/users', passport.authenticate('bearer', {session: false}), function
 router.post('/login', jsonParser, function(req, res) {
   console.log('elearn Login endpoint accessed')
   var password = req.body.password
-  UserElearn.findOne({email: req.body.email}, function(err, user) {
-    if(err) return res.status(500).json({message: 'Internal server error'})
+  UserElearn.findOne({email: req.body.email})
+  .populate('courses')
+  .exec()
+  .then(function(user) {
     if(!user) return res.status(400)
+    console.log("user populated for courses: ", user.courses);
     user.validatePassword(password, function(err, isValid) {
       if(err) {
         console.log("bcrypt error: ", err)
@@ -210,12 +221,15 @@ router.post('/login', jsonParser, function(req, res) {
       // cookies.set("token", token, {httpOnly: false});
       return res.status(302).json({
         _id: user._id,
-        userName: user.name,
+        name: user.name,
         courses: user.courses,
         token: token
       });
     })
   })
+  .catch(function(err) {
+    return res.status(500).json({message: 'Internal server error'})
+  });
 })
 
 router.get('/quiz/:id', passport.authenticate('bearer', {session:false}), function(req, res) {

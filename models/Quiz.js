@@ -3,18 +3,13 @@ var mongoose = require('mongoose'), Schema = mongoose.Schema
 // var Course = require('./Course')
 
 // lessons store in BOX, can reference their ids and titles here for quiz submission records
-var Lesson = new Schema({
-  id: String,
-  title: String
-})
-
 var Course = new Schema({
   id: {
     type: Schema.Types.ObjectId,
     ref: 'Course',
     required: true
   },
-  lessons: [Lesson]
+  lessons: [{id: String, title: String}]
 })
 
 var Answer = new Schema({
