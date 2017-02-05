@@ -122,10 +122,17 @@ router.use(passport.initialize())
 // });
 
 // UserElearn.findOne({email: "jpearnest08@gmail.com"})
-//   .populate('courses')
+//   .populate({
+//     path: 'courses',
+//     populate: {
+//       path: 'quizzes',
+//       select: '_id, title'
+//     }
+//   })
 //   .exec()
 //   .then(function(user) {
 //     console.log("user courses: ", user.courses);
+//     return
 //   })
 //   .catch(function(err) {
 //     console.log("error: ", err);
@@ -199,11 +206,16 @@ router.post('/login', jsonParser, function(req, res) {
   console.log('elearn Login endpoint accessed')
   var password = req.body.password
   UserElearn.findOne({email: req.body.email})
-  .populate('courses')
+  .populate({
+    path: 'courses',
+    populate: {
+      path: 'quizzes',
+      select: '_id, title'
+    }
+  })
   .exec()
   .then(function(user) {
     if(!user) return res.status(400)
-    console.log("user populated for courses: ", user.courses);
     user.validatePassword(password, function(err, isValid) {
       if(err) {
         console.log("bcrypt error: ", err)
