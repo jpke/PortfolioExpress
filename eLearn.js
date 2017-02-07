@@ -16,7 +16,8 @@ var prettyjson = require('prettyjson')
 
 var Course = require('./models/Course')
 var UserElearn = require('./models/UserElearn')
-var Quiz = require('./models/Quiz')
+var Quiz = require('./models/Quiz').Quiz
+var SubmittedItem = require('./models/SubmittedItem')
 
 require("dotenv").config({silent: true});
 var TOKENSECRET = process.env.SECRET
@@ -69,13 +70,13 @@ passport.use(new Strategy(
 router.use(passport.initialize())
 
 // seed database, assume default user already created
-// var quizData = require('./quizData')
+var quizData = require('./quizData')
 // var rQuiz = Quiz.find({}).remove().exec()
 // .then(function(){
 //   return Course.find({}).remove().exec();
 // })
 // .then(function() {
-//   return UserElearn.findOne({email: "jpearnest08@gmail.com"}).exec()
+//   return UserElearn.findOne({email: "jke5@georgetown.edu"}).exec()
 // })
 // .then(function(user) {
 //   var course = new Course();
@@ -121,22 +122,70 @@ router.use(passport.initialize())
 //   console.log("error: ", err);
 // });
 
-// UserElearn.findOne({email: "jpearnest08@gmail.com"})
+// UserElearn.find({})
 //   .populate({
 //     path: 'courses',
 //     populate: {
 //       path: 'quizzes',
-//       select: '_id, title'
+//       // match: {name: "Default Course"},
+//       select: '_id, name'
 //     }
 //   })
 //   .exec()
 //   .then(function(user) {
-//     console.log("user courses: ", user.courses);
+//     console.log("user courses: ", user);
 //     return
 //   })
 //   .catch(function(err) {
 //     console.log("error: ", err);
 //   });
+
+// Quiz.findOne({'submitted.user': '589672003c8e134ac1d00000'})
+// Quiz.find({})
+//   // .populate({
+//   //   path: 'submitted',
+//   //   match: {user: '589672003c8e134ac1d00000'},
+//   // })
+//   // .select('submitted')
+//   // .submitted
+//   // .find({user: "58992e51ade1017d808ce587"})
+//   // .where('score').equals(0)
+//   .exec()
+//   .then(function(quiz) {
+//     console.log('Quiz: ', quiz);
+//     return
+//   })
+//   .catch(function(err) {
+//     console.log("error: ", err);
+//   });
+
+  // Quiz.findOneAndUpdate({_id: "589672003c8e134ac1d93f59"},
+  //   {$push:
+  //     {submitted:
+  //       {
+  //         user: "589672003c8e134ac1d00000",
+  //         submitted: new Date,
+  //         score: 0,
+  //         content: quizData
+  //       }
+  //     }
+  //   }, function(err, post) {
+  //   if(err) {
+  //     console.log("Mongo ERROR: ", err)
+  //     // res.status(500).json('Internal Server Error')
+  //   } else {
+  //     console.log("quiz submitted");
+  //     // return res.status(200).json({message: "quiz submitted", score: score})
+  //   }
+  // });
+
+  // SubmittedItem.find({user: "58993c3c3e83498401234d0d", of: "589672003c8e134ac1d93f59"}).exec()
+  // .then(function(quiz) {
+  //   console.log('submitted quiz: ', quiz);
+  // })
+  // .catch(function(err) {
+  //   console.log("error: ", err);
+  // })
 
 router.post('/users', jsonParser, function(req,res) {
   console.log("body: ",req.body)
@@ -244,22 +293,31 @@ router.post('/login', jsonParser, function(req, res) {
   });
 })
 
-router.get('/quiz/:id', passport.authenticate('bearer', {session:false}), function(req, res) {
-  Quiz.findOne({_id: req.params.id}, {submitted: 0}, function(err, quiz) {
-    if(err) {
-      console.log("Mongo ERROR: ", err)
-      return res.status(500).json('Internal Server Error')
-    }
-    console.log("Quiz sent: ", quiz);
-    return res.status(200).json(quiz)
+router.get('/quiz/:quizId/:userId', passport.authenticate('bearer', {session:false}), function(req, res) {
+  console.log("quiz: id: ", req.params.quizId);
+  Quiz.find({_id: req.params.quizId}).exec()
+  .then(function(quiz) {
+    return SubmittedItem.find({user: req.params.userId, of: req.params.quizId})
+    .exec()
+    .then(function(submitted) {
+      return [quiz, submitted];
+    });
   })
+  .then(function(results) {
+    console.log("Quiz sent");
+    return res.status(200).json(results)
+  })
+  .catch(function(err) {
+    console.log("Mongo ERROR: ", err)
+    return res.status(500).json('Internal Server Error')
+  });
 })
 
-router.put('/quiz/:id', passport.authenticate('bearer', {session: false}), function(req, res) {
+router.put('/quiz/:quizId/:userId', passport.authenticate('bearer', {session: false}), function(req, res) {
 console.log("token decoded: ", prettyjson.render(req.user._doc.admin[0].isAdmin))
   var isAdmin = req.user._doc.admin[0].isAdmin;
   if(!isAdmin) return res.status(401).json('admin privileges needed to edit quizes')
-  Quiz.find({_id: req.params.id}, function(err, quiz) {
+  Quiz.find({_id: req.params.quizId}, function(err, quiz) {
     if(err) {
       console.log('Mongo error ', err)
       return res.status(500).json('Internal Server Error')
@@ -277,24 +335,20 @@ router.post('/quiz/submit', passport.authenticate('bearer', {session:false}), js
   });
   score = score.reduce((a,b) => {return a + b}, 0);
 
-  Quiz.findOneAndUpdate({_id: req.body.quiz_Id},
-    {$push:
-      {submitted:
-        {
-          user: req.body.user_Id,
-          submitted: new Date,
-          score: score,
-          content: quizData
-        }
-      }
-    }, function(err, post) {
-    if(err) {
-      console.log("Mongo ERROR: ", err)
-      res.status(500).json('Internal Server Error')
-    } else {
-      console.log("quiz submitted");
-      return res.status(200).json({message: "quiz submitted", score: score})
-    }
+  var submission = new SubmittedItem;
+  submission.user = req.body.user_Id;
+  submission.submitted = new Date;
+  submission.score = score;
+  submission.item = quizData;
+  submission.of = req.body.quiz_Id;
+  submission.save()
+  .then(function(submission) {
+    console.log("quiz submitted");
+    return res.status(200).json({message: "quiz submitted", score: submission.score})
+  })
+  .catch(function(err) {
+    console.log("Mongo ERROR: ", err)
+    res.status(500).json('Internal Server Error')
   })
 })
 
