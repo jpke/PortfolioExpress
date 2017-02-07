@@ -3,6 +3,7 @@ var router = express.Router()
 var bodyParser = require('body-parser')
 // var cookieParser = require('cookie-parser')
 var mongoose = require('mongoose')
+mongoose.Promise = global.Promise;
 var jwt = require('jsonwebtoken')
 var passport = require('passport')
 var bcrypt = require('bcryptjs')
@@ -15,8 +16,8 @@ var prettyjson = require('prettyjson')
 
 var Course = require('./models/Course')
 var UserElearn = require('./models/UserElearn')
-var Quiz = require('./models/Quiz')
-var quizData = require('./quizData')
+var Quiz = require('./models/Quiz').Quiz
+var SubmittedItem = require('./models/SubmittedItem')
 
 require("dotenv").config({silent: true});
 var TOKENSECRET = process.env.SECRET
@@ -28,32 +29,6 @@ var PUBLIC_KEY_ID = process.env.BOX_PUBLIC_KEY_ID;
 var PRIVATE_KEY_PASSPHRASE = process.env.BOX_PRIVATE_KEY_PASSPHRASE;
 var APP_ID = process.env.BOX_APP_ID;
 var ENTERPRISE_ID = process.env.ENTERPRISE_ID;
-
-// var uniqueID = uuid();
-// fs.readFile("private_key.pem", 'utf-8', function(err, PRIVATE_KEY) {
-//   console.log("KEY: ", PRIVATE_KEY);
-  // var claims = {
-  //     "iss": CLIENT_ID,
-  //     "sub": ENTERPRISE_ID,
-  //     "box_sub_type": "enterprise",
-  //     "aud": "https://api.box.com/oauth2/token",
-  //     "jti": uuid(),
-  //     "exp": Date.now() / 1000 | 0 + 60
-  // };
-  // var options = {
-  //   algorithm: 'RS256',
-  //   header: {
-  //     "alg": "RS256",
-  //     "typ": "JWT",
-  //     "kid": APP_ID
-  //   }
-  // };
-  // var key = {
-  //   key: PRIVATE_KEY,
-  //   passphrase: PRIVATE_KEY_PASSPHRASE
-  // };
-  // var token = jwt.sign(claims, key, options);
-  // console.log("token generated: ", token);
 
 var PRIVATE_KEY = fs.readFileSync("private_key.pem", 'utf-8');
   var sdk = new BoxSDK({
@@ -73,73 +48,6 @@ var PRIVATE_KEY = fs.readFileSync("private_key.pem", 'utf-8');
     // console.log("currentUser: ", currentUser);
   });
 
-  // box.folders.create('0', "newFolder", function(err, data) {
-  //   if(err) console.log("error: ", err);
-  //   if(data) console.log("data: ", data);
-  //   console.log("complete");
-  // })
-
-  // var stream = fs.createReadStream(path.resolve(__dirname, 'Example PDF.pdf'));
-  //
-  // box.files.uploadFile('18155048374', "Example PDF3.pdf", stream, function(err, data) {
-  //   if(err) console.log("error: ", err);
-  //   if(data) console.log("data: ", data);
-  // })
-
-  // box.files.update("130865866472", {shared_link: box.accessLevels.DEFAULT}, function(err, link) {
-  //     if(err) console.log("error: ", err);
-  //     if(link) console.log("data: ", link);
-  //     console.log("complete");
-  // })
-
-//   box.folders.get(
-//     '0',
-//     {fields: 'name,shared_link,permissions,collections,sync_state'},
-//     function(err, link) {
-//         if(err) console.log("error: ", err);
-//         if(link) console.log("data: ", link);
-//         console.log("complete");
-//     }
-// );
-
-// box.folders.getItems(
-//     '18155048374',
-//     {
-//         fields: 'name,modified_at,size,url,permissions,sync_state',
-//         offset: 0,
-//         limit: 25
-//     },
-//     function(err, link) {
-//             if(err) console.log("error: ", err);
-//             if(link) console.log("data: ", link);
-//             console.log("complete");
-//         }
-// );
-
-// box.files.getThumbnail('130861063664', null, function(err, response) {
-//
-//     if (err) {
-//         if(err) console.log("error: ", err);
-//     }
-//     if(response.file) {
-//
-//     }
-//
-//     // if (response.location) {
-//     //     // fetch thumbnail from URL
-//     // } else if (response.file) {
-//     //     // use response.file contents as thumbnail
-//     // } else {
-//     //     // no thumbnail available
-//     // }
-// });
-
-  // box.files.getReadStream('130861063664', null, function(err, stream) {
-  //   if(err) console.log("error: ", error);
-  //   var output = fs.createWriteStream('/Users/JP/Desktop/Apps/testDownload.pdf');
-  //   stream.pipe(output);
-  // })
-  // console.log(__dirname);
 
 var jsonParser = bodyParser.json()
 
@@ -160,25 +68,124 @@ passport.use(new Strategy(
   }
 ))
 router.use(passport.initialize())
-// router.use(cookieParser())
 
-// Quiz.find({}).remove().exec()
-// // Seed database
-// Quiz.create(
-//   {
-//     title: "default quiz",
-//     created: new Date,
-//     items: quizData,
-//     minimumScore: 2,
-//   }, function(err, quiz) {
-//     if(err) console.log("err ", err);
-//     console.log('Quiz created: ', quiz);
+// seed database, assume default user already created
+var quizData = require('./quizData')
+// var rQuiz = Quiz.find({}).remove().exec()
+// .then(function(){
+//   return Course.find({}).remove().exec();
 // })
-Quiz.findOne({}, {submitted: 0}, function(err, data) {
-  if(err) console.log("error: ", err);
+// .then(function() {
+//   return UserElearn.findOne({email: "jke5@georgetown.edu"}).exec()
+// })
+// .then(function(user) {
+//   var course = new Course();
+//   course.name = "Default Course";
+//   course.admin = user._id;
+//   return course.save().then(function(course) {return [user, course]});
+// })
+// .then(function(state) {
+//   var user = state[0];
+//   var course = state[1];
+//   user.courses.push(course._id);
+//   return user.save().then(function(user) {
+//     state[0] = user;
+//     return state;
+//   });
+// })
+// .then(function(state) {
+//   var quiz = new Quiz();
+//   quiz.title = "Default Quiz";
+//   quiz.courses.push({id: state[1]._id});
+//   quiz.items = quizData;
+//   quiz.minimumScore = 2;
+//   return quiz.save().then(function(quiz) {
+//     state.push(quiz)
+//     return state;
+//   });
+// })
+// .then(function(state) {
+//   var user = state[0];
+//   var course = state[1];
+//   var quiz = state[2];
+//   course.name = course.name;
+//   course.quizzes.push(quiz._id);
+//   return course.save().then(function(course) {
+//     state[1] = course;
+//     return state;
+//   })
+// })
+// .then(function(stateArray) {
+//   console.log("Course updated ", stateArray);
+// })
+// .catch(function(err) {
+//   console.log("error: ", err);
+// });
 
-  console.log("data: ", data);
-});
+// UserElearn.find({})
+//   .populate({
+//     path: 'courses',
+//     populate: {
+//       path: 'quizzes',
+//       // match: {name: "Default Course"},
+//       select: '_id, name'
+//     }
+//   })
+//   .exec()
+//   .then(function(user) {
+//     console.log("user courses: ", user);
+//     return
+//   })
+//   .catch(function(err) {
+//     console.log("error: ", err);
+//   });
+
+// Quiz.findOne({'submitted.user': '589672003c8e134ac1d00000'})
+// Quiz.find({})
+//   // .populate({
+//   //   path: 'submitted',
+//   //   match: {user: '589672003c8e134ac1d00000'},
+//   // })
+//   // .select('submitted')
+//   // .submitted
+//   // .find({user: "58992e51ade1017d808ce587"})
+//   // .where('score').equals(0)
+//   .exec()
+//   .then(function(quiz) {
+//     console.log('Quiz: ', quiz);
+//     return
+//   })
+//   .catch(function(err) {
+//     console.log("error: ", err);
+//   });
+
+  // Quiz.findOneAndUpdate({_id: "589672003c8e134ac1d93f59"},
+  //   {$push:
+  //     {submitted:
+  //       {
+  //         user: "589672003c8e134ac1d00000",
+  //         submitted: new Date,
+  //         score: 0,
+  //         content: quizData
+  //       }
+  //     }
+  //   }, function(err, post) {
+  //   if(err) {
+  //     console.log("Mongo ERROR: ", err)
+  //     // res.status(500).json('Internal Server Error')
+  //   } else {
+  //     console.log("quiz submitted");
+  //     // return res.status(200).json({message: "quiz submitted", score: score})
+  //   }
+  // });
+
+  // SubmittedItem.find({user: "58993c3c3e83498401234d0d", of: "589672003c8e134ac1d93f59"}).exec()
+  // .then(function(quiz) {
+  //   console.log('submitted quiz: ', quiz);
+  // })
+  // .catch(function(err) {
+  //   console.log("error: ", err);
+  // })
 
 router.post('/users', jsonParser, function(req,res) {
   console.log("body: ",req.body)
@@ -215,11 +222,7 @@ router.post('/users', jsonParser, function(req,res) {
               var user = new UserElearn({
                   name: name,
                   email: email,
-                  password: hash,
-                  courses: [{
-                    name: 'default quiz',
-                    id: '58950e41c435321ae0f10a69',
-                    admin: true}]
+                  password: hash
               });
               var token = jwt.sign(user, TOKENSECRET, {
                 expiresIn: "24h"
@@ -233,10 +236,9 @@ router.post('/users', jsonParser, function(req,res) {
                   }
                   console.log("user: ", user);
                   return res.status(201).json({
-                    sucess: true,
                     _id: user._id,
+                    name: user.name,
                     courses: user.courses,
-                    message: 'Token created',
                     token: token
                   });
               });
@@ -252,8 +254,16 @@ router.get('/users', passport.authenticate('bearer', {session: false}), function
 router.post('/login', jsonParser, function(req, res) {
   console.log('elearn Login endpoint accessed')
   var password = req.body.password
-  UserElearn.findOne({email: req.body.email}, function(err, user) {
-    if(err) return res.status(500).json({message: 'Internal server error'})
+  UserElearn.findOne({email: req.body.email})
+  .populate({
+    path: 'courses',
+    populate: {
+      path: 'quizzes',
+      select: '_id, title'
+    }
+  })
+  .exec()
+  .then(function(user) {
     if(!user) return res.status(400)
     user.validatePassword(password, function(err, isValid) {
       if(err) {
@@ -272,30 +282,42 @@ router.post('/login', jsonParser, function(req, res) {
       // cookies.set("token", token, {httpOnly: false});
       return res.status(302).json({
         _id: user._id,
-        userName: user.name,
+        name: user.name,
         courses: user.courses,
         token: token
       });
     })
   })
+  .catch(function(err) {
+    return res.status(500).json({message: 'Internal server error'})
+  });
 })
 
-router.get('/quiz/:id', passport.authenticate('bearer', {session:false}), function(req, res) {
-  Quiz.findOne({_id: req.params.id}, {submitted: 0}, function(err, quiz) {
-    if(err) {
-      console.log("Mongo ERROR: ", err)
-      return res.status(500).json('Internal Server Error')
-    }
-    console.log("Quiz sent: ", quiz);
-    return res.status(200).json(quiz)
+router.get('/quiz/:quizId/:userId', passport.authenticate('bearer', {session:false}), function(req, res) {
+  console.log("quiz: id: ", req.params.quizId);
+  Quiz.find({_id: req.params.quizId}).exec()
+  .then(function(quiz) {
+    return SubmittedItem.find({user: req.params.userId, of: req.params.quizId})
+    .exec()
+    .then(function(submitted) {
+      return [quiz, submitted];
+    });
   })
+  .then(function(results) {
+    console.log("Quiz sent");
+    return res.status(200).json(results)
+  })
+  .catch(function(err) {
+    console.log("Mongo ERROR: ", err)
+    return res.status(500).json('Internal Server Error')
+  });
 })
 
-router.put('/quiz/:id', passport.authenticate('bearer', {session: false}), function(req, res) {
+router.put('/quiz/:quizId/:userId', passport.authenticate('bearer', {session: false}), function(req, res) {
 console.log("token decoded: ", prettyjson.render(req.user._doc.admin[0].isAdmin))
   var isAdmin = req.user._doc.admin[0].isAdmin;
   if(!isAdmin) return res.status(401).json('admin privileges needed to edit quizes')
-  Quiz.find({_id: req.params.id}, function(err, quiz) {
+  Quiz.find({_id: req.params.quizId}, function(err, quiz) {
     if(err) {
       console.log('Mongo error ', err)
       return res.status(500).json('Internal Server Error')
@@ -313,24 +335,20 @@ router.post('/quiz/submit', passport.authenticate('bearer', {session:false}), js
   });
   score = score.reduce((a,b) => {return a + b}, 0);
 
-  Quiz.findOneAndUpdate({_id: req.body.quiz_Id},
-    {$push:
-      {submitted:
-        {
-          user: req.body.user_Id,
-          submitted: new Date,
-          score: score,
-          content: quizData
-        }
-      }
-    }, function(err, post) {
-    if(err) {
-      console.log("Mongo ERROR: ", err)
-      res.status(500).json('Internal Server Error')
-    } else {
-      console.log("quiz submitted");
-      return res.status(200).json({message: "quiz submitted", score: score})
-    }
+  var submission = new SubmittedItem;
+  submission.user = req.body.user_Id;
+  submission.submitted = new Date;
+  submission.score = score;
+  submission.item = quizData;
+  submission.of = req.body.quiz_Id;
+  submission.save()
+  .then(function(submission) {
+    console.log("quiz submitted");
+    return res.status(200).json({message: "quiz submitted", score: submission.score})
+  })
+  .catch(function(err) {
+    console.log("Mongo ERROR: ", err)
+    res.status(500).json('Internal Server Error')
   })
 })
 
