@@ -48,7 +48,8 @@ var QuizSchema = new Schema({
   minimumScore: {
     type: Number,
     required: true
-  }
+  },
+  live: Boolean
 })
 
 var Quiz = mongoose.model('Quiz', QuizSchema)

@@ -295,7 +295,6 @@ router.post('/login', jsonParser, function(req, res) {
 })
 
 router.get('/quiz/:quizId/:userId', passport.authenticate('bearer', {session:false}), function(req, res) {
-  console.log("quiz: id: ", req.params.quizId);
   Quiz.find({_id: req.params.quizId}).exec()
   .then(function(quiz) {
     return SubmittedItem.find({user: req.params.userId, of: req.params.quizId})
@@ -313,6 +312,24 @@ router.get('/quiz/:quizId/:userId', passport.authenticate('bearer', {session:fal
     return res.status(500).json('Internal Server Error')
   });
 })
+
+router.post('/quiz', jsonParser, passport.authenticate('bearer', {session:false}), function(req, res){
+  console.log("endpoint accessed");
+  var quiz = new Quiz();
+  quiz.title = req.body.title;
+  quiz.courses.push({id: req.body.courseId});
+  quiz.minimumScore = req.body.minimumScore;
+  quiz.live = false;
+  quiz.save().then(function(quiz) {
+    res.status(201).json(quiz);
+  })
+  .catch(function(err) {
+    if(err) {
+      console.log("error: ", err);
+      res.status(500).json({message: 'Internal server error'});
+    };
+  });
+});
 
 router.put('/quiz/:quizId/:userId', passport.authenticate('bearer', {session: false}), function(req, res) {
 console.log("token decoded: ", prettyjson.render(req.user._doc.admin[0].isAdmin))
