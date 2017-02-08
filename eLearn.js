@@ -76,7 +76,7 @@ var quizData = require('./quizData')
 //   return Course.find({}).remove().exec();
 // })
 // .then(function() {
-//   return UserElearn.findOne({email: "jke5@georgetown.edu"}).exec()
+//   return UserElearn.findOne({email: "jpearnest08@gmail.com"}).exec()
 // })
 // .then(function(user) {
 //   var course = new Course();
@@ -85,6 +85,7 @@ var quizData = require('./quizData')
 //   return course.save().then(function(course) {return [user, course]});
 // })
 // .then(function(state) {
+//   // console.log(state[0]._id, state[1].admin[0]);
 //   var user = state[0];
 //   var course = state[1];
 //   user.courses.push(course._id);

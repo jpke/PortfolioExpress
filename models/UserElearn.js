@@ -4,9 +4,10 @@ var bcrypt = require('bcryptjs')
 
 // var Course = new Schema({
 //   course: {
-//     type: Schema.Types.ObjectId,
-//     ref: 'Courses'
-//   }
+//     _id: {
+//       type: Schema.Types.ObjectId,
+//       ref: 'Courses'
+//     }
 // })
 
 var UserSchema = new Schema({
