@@ -225,9 +225,6 @@ router.post('/users', jsonParser, function(req,res) {
                   email: email,
                   password: hash
               });
-              var token = jwt.sign(user, TOKENSECRET, {
-                expiresIn: "24h"
-              })
               user.save(function(err, user) {
                   if (err) {
                     console.log("Mongoose: ", err)
@@ -236,6 +233,14 @@ router.post('/users', jsonParser, function(req,res) {
                       });
                   }
                   console.log("user: ", user);
+                  var token = jwt.sign({
+                    _id: user._id,
+                    name: user.name,
+                    email: user.email,
+                    courses: user.courses
+                  }, TOKENSECRET, {
+                    expiresIn: "24h"
+                  });
                   return res.status(201).json({
                     _id: user._id,
                     name: user.name,
@@ -275,9 +280,21 @@ router.post('/login', jsonParser, function(req, res) {
         console.log('password incorrect')
         return res.status(400).json({message: 'Incorrect password'})
       }
-      var token = jwt.sign(user, TOKENSECRET, {
+      console.log("user: ", {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        courses: user.courses
+      });
+      var token = jwt.sign({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        courses: user.courses
+      }, TOKENSECRET, {
         expiresIn: "24h"
       })
+      console.log("token: ", token);
       console.log('validated response sent')
       // var cookies = new Cookies(req,res);
       // cookies.set("token", token, {httpOnly: false});
@@ -314,13 +331,14 @@ router.get('/quiz/:quizId/:userId', passport.authenticate('bearer', {session:fal
 })
 
 router.post('/quiz', jsonParser, passport.authenticate('bearer', {session:false}), function(req, res){
-  console.log("endpoint accessed");
+  console.log("create quiz endpoint accessed");
   var quiz = new Quiz();
   quiz.title = req.body.title;
   quiz.courses.push({id: req.body.courseId});
   quiz.minimumScore = req.body.minimumScore;
   quiz.live = false;
   quiz.save().then(function(quiz) {
+    console.log("quiz created: ", quiz);
     res.status(201).json(quiz);
   })
   .catch(function(err) {
@@ -342,6 +360,29 @@ console.log("token decoded: ", prettyjson.render(req.user._doc.admin[0].isAdmin)
     }
 
   })
+})
+
+router.delete('/quiz/:quizId/:courseId', passport.authenticate('bearer', {session:false}), function(req, res) {
+  console.log("token data: ", req.user, req.user.courses[0].admin);
+  var course = Course.findOneAndUpdate({_id: req.params.courseId},
+      { $pull: {
+        quizzes: {$in: [req.params.quizId]}
+      }
+    }).exec()
+    course.then(function(course) {
+      console.log("course quizzes: ", course.quizzes);
+      var quiz = Quiz.remove({_id: req.params.quizId}).exec();
+      quiz.then(function(quiz) {
+        console.log("quiz removed: ", quiz);
+      })
+      .then(function(){
+        var quizFound = Quiz.findOne({_id: req.params.quizId}).exec()
+        quizFound.then(function(quiz) {
+          if(quiz) console.log("quiz still there: ", quiz);
+        })
+      })
+
+    })
 })
 
 router.post('/quiz/submit', passport.authenticate('bearer', {session:false}), jsonParser, function(req, res) {
