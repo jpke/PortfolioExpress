@@ -349,18 +349,67 @@ router.post('/quiz', jsonParser, passport.authenticate('bearer', {session:false}
   });
 });
 
-router.put('/quiz/:quizId/:userId', passport.authenticate('bearer', {session: false}), function(req, res) {
-console.log("token decoded: ", prettyjson.render(req.user._doc.admin[0].isAdmin))
-  var isAdmin = req.user._doc.admin[0].isAdmin;
-  if(!isAdmin) return res.status(401).json('admin privileges needed to edit quizes')
-  Quiz.find({_id: req.params.quizId}, function(err, quiz) {
-    if(err) {
-      console.log('Mongo error ', err)
-      return res.status(500).json('Internal Server Error')
-    }
+router.put('/quiz', jsonParser, passport.authenticate('bearer', {session: false}), function(req, res) {
+  console.log("save quiz request received");
+  console.log("token decoded: ", prettyjson.render(req.user))
+  console.log("body ", prettyjson.render(req.body));
+  var course = req.user.courses.find(function(course) {
+    if(course._id === req.body.courseID) return true;
+  });
+  var admin = course.admin.find(function(admin) {
+    if(admin === req.user._id) return true;
+  });
+  console.log("course: ", course, "admin: ", admin);
+  if(!admin) return res.status(401).json({message: "only admin can alter course"});
 
-  })
-})
+  var quiz = req.body.quiz;
+  if(quiz.courses[0] === "undefined") quiz.courses[0] = {id: req.body.courseID};
+  if(!req.body.quiz._id || req.body.quiz._id == null) {
+    var newQuiz = new Quiz();
+    newQuiz.title = quiz.title;
+    newQuiz.courses = quiz.courses;
+    newQuiz.items = quiz.items;
+    newQuiz.minimumScore = quiz.minimumScore;
+    newQuiz.live = quiz.live
+    newQuiz.save()
+    .then(function(quiz) {
+      console.log("quiz created, id: ", quiz._id, "courseId: ", course._id);
+      return Course.findOne({_id: course._id}).exec()
+      .then(function(courseToUpdate) {
+        console.log("course found: ", courseToUpdate);
+        courseToUpdate.quizzes.push(quiz._id);
+        return courseToUpdate.save()
+      })
+      .then(function(course) {
+        course.admin = true;
+        console.log("course found and updated: ", course);
+        return [quiz, course]
+      });
+    })
+    .then(function(state) {
+      console.log("state updated: ", state);
+      return res.status(201).json(state);
+    }).catch(function(err) {
+      console.log("error: ", err);
+      return res.status(500).json("Internal server error");
+    })
+  } else {
+    Quiz.findOneAndUpdate({_id: req.body.quizId}, {
+      title: quiz.title,
+      courses: quiz.courses,
+      items: quiz.items,
+      minimumScore: quiz.minimumScore,
+      live: quiz.live
+    }, {upsert: true, new: true}, function(err, quiz) {
+      if(err) {
+        console.log('Mongo error ', err)
+        return res.status(500).json('Internal Server Error')
+      }
+      console.log("quiz saved: ", quiz)
+      return res.status(201).json([quiz,]);
+    });
+  }
+});
 
 router.delete('/quiz/:quizId/:courseId', passport.authenticate('bearer', {session:false}), function(req, res) {
   console.log("token data: ", req.user, req.user.courses[0].admin);
