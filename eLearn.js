@@ -70,7 +70,7 @@ passport.use(new Strategy(
 router.use(passport.initialize())
 
 // seed database, assume default user already created
-var quizData = require('./quizData')
+// var quizData = require('./quizData')
 // var rQuiz = Quiz.find({}).remove().exec()
 // .then(function(){
 //   return Course.find({}).remove().exec();
@@ -93,28 +93,6 @@ var quizData = require('./quizData')
 //     state[0] = user;
 //     return state;
 //   });
-// })
-// .then(function(state) {
-//   var quiz = new Quiz();
-//   quiz.title = "Default Quiz";
-//   quiz.courses.push({id: state[1]._id});
-//   quiz.items = quizData;
-//   quiz.minimumScore = 2;
-//   return quiz.save().then(function(quiz) {
-//     state.push(quiz)
-//     return state;
-//   });
-// })
-// .then(function(state) {
-//   var user = state[0];
-//   var course = state[1];
-//   var quiz = state[2];
-//   course.name = course.name;
-//   course.quizzes.push(quiz._id);
-//   return course.save().then(function(course) {
-//     state[1] = course;
-//     return state;
-//   })
 // })
 // .then(function(stateArray) {
 //   console.log("Course updated ", stateArray);
@@ -294,7 +272,6 @@ router.post('/login', jsonParser, function(req, res) {
       }, TOKENSECRET, {
         expiresIn: "24h"
       })
-      console.log("token: ", token);
       console.log('validated response sent')
       // var cookies = new Cookies(req,res);
       // cookies.set("token", token, {httpOnly: false});
@@ -330,41 +307,20 @@ router.get('/quiz/:quizId/:userId', passport.authenticate('bearer', {session:fal
   });
 })
 
-router.post('/quiz', jsonParser, passport.authenticate('bearer', {session:false}), function(req, res){
-  console.log("create quiz endpoint accessed");
-  var quiz = new Quiz();
-  quiz.title = req.body.title;
-  quiz.courses.push({id: req.body.courseId});
-  quiz.minimumScore = req.body.minimumScore;
-  quiz.live = false;
-  quiz.save().then(function(quiz) {
-    console.log("quiz created: ", quiz);
-    res.status(201).json(quiz);
-  })
-  .catch(function(err) {
-    if(err) {
-      console.log("error: ", err);
-      res.status(500).json({message: 'Internal server error'});
-    };
-  });
-});
-
 router.put('/quiz', jsonParser, passport.authenticate('bearer', {session: false}), function(req, res) {
   console.log("save quiz request received");
-  console.log("token decoded: ", prettyjson.render(req.user))
-  console.log("body ", prettyjson.render(req.body));
   var course = req.user.courses.find(function(course) {
     if(course._id === req.body.courseID) return true;
   });
   var admin = course.admin.find(function(admin) {
     if(admin === req.user._id) return true;
   });
-  console.log("course: ", course, "admin: ", admin);
   if(!admin) return res.status(401).json({message: "only admin can alter course"});
 
   var quiz = req.body.quiz;
+  console.log("quiz to save: ", quiz);
   if(quiz.courses[0] === "undefined") quiz.courses[0] = {id: req.body.courseID};
-  if(!req.body.quiz._id || req.body.quiz._id == null) {
+  if(!quiz._id || quiz._id == null) {
     var newQuiz = new Quiz();
     newQuiz.title = quiz.title;
     newQuiz.courses = quiz.courses;
@@ -373,40 +329,46 @@ router.put('/quiz', jsonParser, passport.authenticate('bearer', {session: false}
     newQuiz.live = quiz.live
     newQuiz.save()
     .then(function(quiz) {
-      console.log("quiz created, id: ", quiz._id, "courseId: ", course._id);
+      console.log("quiz id: ", quiz._id);
       return Course.findOne({_id: course._id}).exec()
       .then(function(courseToUpdate) {
-        console.log("course found: ", courseToUpdate);
         courseToUpdate.quizzes.push(quiz._id);
-        return courseToUpdate.save()
+        return courseToUpdate.save();
+      })
+      .then(function(course) {
+        return Course.populate(course, {
+                  path: 'quizzes',
+                  select: '_id, title'
+                });
       })
       .then(function(course) {
         course.admin = true;
-        console.log("course found and updated: ", course);
         return [quiz, course]
       });
     })
     .then(function(state) {
-      console.log("state updated: ", state);
+      console.log("quiz created, sending response...", state);
+      console.log("quiz id: ", state[0]._id);
       return res.status(201).json(state);
     }).catch(function(err) {
       console.log("error: ", err);
       return res.status(500).json("Internal server error");
     })
   } else {
-    Quiz.findOneAndUpdate({_id: req.body.quizId}, {
+    Quiz.findOneAndUpdate({_id: quiz._id}, {
       title: quiz.title,
       courses: quiz.courses,
       items: quiz.items,
       minimumScore: quiz.minimumScore,
       live: quiz.live
-    }, {upsert: true, new: true}, function(err, quiz) {
+    }, {new: true}, function(err, quiz) {
       if(err) {
         console.log('Mongo error ', err)
         return res.status(500).json('Internal Server Error')
       }
-      console.log("quiz saved: ", quiz)
-      return res.status(201).json([quiz,]);
+      console.log("quiz id: ", quiz._id);
+      console.log("quiz updated, sending response...", "quiz: ", quiz, "course: ", course);
+      return res.status(201).json([quiz, course]);
     });
   }
 });
@@ -420,19 +382,39 @@ router.delete('/quiz/:quizId/:courseId', passport.authenticate('bearer', {sessio
     }).exec()
     course.then(function(course) {
       console.log("course quizzes: ", course.quizzes);
-      var quiz = Quiz.remove({_id: req.params.quizId}).exec();
-      quiz.then(function(quiz) {
-        console.log("quiz removed: ", quiz);
-      })
-      .then(function(){
-        var quizFound = Quiz.findOne({_id: req.params.quizId}).exec()
-        quizFound.then(function(quiz) {
-          if(quiz) console.log("quiz still there: ", quiz);
-        })
-      })
-
+      return Quiz.remove({_id: req.params.quizId}).exec();
     })
-})
+    .then(function(quiz) {
+      console.log("quiz removed: ", quiz.result);
+      return Quiz.findOne({_id: req.params.quizId}).exec()
+    })
+    .then(function(quiz){
+      if(quiz) {
+        throw new err;
+        console.log("quiz still there: ", quiz);
+      }
+    })
+    .then(function() {
+      return UserElearn.findOne({email: req.user.email})
+      .populate({
+        path: 'courses',
+        populate: {
+          path: 'quizzes',
+          select: '_id, title'
+        }
+      })
+      .exec()
+    })
+    .then(function(user) {
+      res.status(200).json({courses: user.courses});
+    })
+    .catch(function(err) {
+      if(err) {
+        console.log("error: ", err);
+        res.status(500).json("Internal server error");
+      }
+    })
+});
 
 router.post('/quiz/submit', passport.authenticate('bearer', {session:false}), jsonParser, function(req, res) {
   // console.log("params ", req.params);
