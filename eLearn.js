@@ -239,7 +239,6 @@ router.post('/login', jsonParser, function(req, res) {
   .populate('passed', 'of')
   .exec()
   .then(function(user) {
-    console.log("user passed: ", user.passed);
     if(!user) return res.status(400)
     user.validatePassword(password, function(err, isValid) {
       if(err) {
@@ -423,19 +422,21 @@ router.post('/quiz/submit', passport.authenticate('bearer', {session:false}), js
         user.passed.push(state[0]._id);
         return user.save()
         .then(function(user) {
-          return state[0];
+          return state;
         })
       })
     }
     else {
-      return state[0];
+      return state;
     }
   })
-  .then(function(submission) {
+  .then(function(state) {
     return res.status(200).json({
       message: "quiz submitted",
-      score: submission.score,
-      attempt: submission})
+      score: state[0].score,
+      attempt: state[0],
+      passed: state[1]
+    })
   })
   .catch(function(err) {
     console.log("Mongo ERROR: ", err)
