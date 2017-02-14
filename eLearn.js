@@ -330,16 +330,13 @@ router.put('/quiz', jsonParser, passport.authenticate('bearer', {session: false}
     newQuiz.save()
     .then(function(quiz) {
       console.log("quiz id: ", quiz._id);
-      return Course.findOne({_id: course._id}).exec()
+      return Course.findOne({_id: course._id}).populate({
+                path: 'quizzes',
+                select: '_id, title'
+              }).exec()
       .then(function(courseToUpdate) {
-        courseToUpdate.quizzes.push(quiz._id);
+        courseToUpdate.quizzes.push({_id: quiz._id, title: quiz.title});
         return courseToUpdate.save();
-      })
-      .then(function(course) {
-        return Course.populate(course, {
-                  path: 'quizzes',
-                  select: '_id, title'
-                });
       })
       .then(function(course) {
         course.admin = true;
