@@ -236,8 +236,10 @@ router.post('/login', jsonParser, function(req, res) {
       select: '_id, title'
     }
   })
+  .populate('passed', 'of')
   .exec()
   .then(function(user) {
+    console.log("user passed: ", user.passed);
     if(!user) return res.status(400)
     user.validatePassword(password, function(err, isValid) {
       if(err) {
@@ -261,6 +263,7 @@ router.post('/login', jsonParser, function(req, res) {
         _id: user._id,
         name: user.name,
         courses: user.courses,
+        passed: user.passed,
         token: token
       });
     })
@@ -402,6 +405,32 @@ router.post('/quiz/submit', passport.authenticate('bearer', {session:false}), js
   submission.item = quizData;
   submission.of = req.body.quiz_Id;
   submission.save()
+  .then(function(submission) {
+    return Quiz.findOne({_id: submission.of}).exec()
+    .then(function(quiz) {
+      console.log("sub and quiz: ", submission.score, quiz.minimumScore);
+      if(submission.score >= quiz.minimumScore) {
+        return [submission, true]
+      } else {
+        return [submission, false]
+      }
+    })
+  })
+  .then(function(state) {
+    if(state[1]) {
+      return UserElearn.findOne({_id: req.body.user_Id}).exec()
+      .then(function(user) {
+        user.passed.push(state[0]._id);
+        return user.save()
+        .then(function(user) {
+          return state[0];
+        })
+      })
+    }
+    else {
+      return state[0];
+    }
+  })
   .then(function(submission) {
     return res.status(200).json({
       message: "quiz submitted",

@@ -23,7 +23,8 @@ var UserSchema = new Schema({
     type: String,
     required: true
   },
-  courses: [{type: Schema.Types.ObjectId, ref: 'Course'}]
+  courses: [{type: Schema.Types.ObjectId, ref: 'Course'}],
+  passed: [{type: Schema.Types.ObjectId, ref: 'SubmittedItem'}]
 })
 
 UserSchema.methods.validatePassword = function(password, callback) {
