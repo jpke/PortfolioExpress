@@ -45,7 +45,6 @@ var PRIVATE_KEY = fs.readFileSync("private_key.pem", 'utf-8');
 
   box.users.get(box.CURRENT_USER_ID, null, function(err, currentUser) {
     if(err) console.log("error: ", err);
-    // console.log("currentUser: ", currentUser);
   });
 
 
@@ -53,13 +52,11 @@ var jsonParser = bodyParser.json()
 
 passport.use(new Strategy(
   function(token, done) {
-    // console.log("token: ", token);
     if(token) {
       jwt.verify(token, TOKENSECRET, function(err, decoded) {
         if(err) {
           return done(err)
         }
-        // console.log("token decoded: ", decoded);
         return done(null, decoded, {scope: 'all'})
       })
     } else {
@@ -167,33 +164,28 @@ router.use(passport.initialize())
   // })
 
 router.post('/users', jsonParser, function(req,res) {
-  console.log("body: ",req.body)
   var name = req.body.name
   var email = req.body.email
   var password = req.body.password
   UserElearn.findOne({email: email}, function(err, user) {
     if (err) {
-      console.log("Mongoose: ", err)
         return res.status(500).json({
             message: 'Internal server error'
         });
     }
     if(user != null) {
-      console.log("user found by email: ", user);
       return res.status(400).json({
         message: "email already associated with an account"
       });
     }
     bcrypt.genSalt(10, function(err, salt) {
           if (err) {
-            console.log(err)
               return res.status(500).json({
                   message: 'Internal server error'
               });
           }
           bcrypt.hash(password, salt, function(err, hash) {
               if (err) {
-                console.log("!!!", err)
                   return res.status(500).json({
                       message: 'Internal server error'
                   });
@@ -205,12 +197,10 @@ router.post('/users', jsonParser, function(req,res) {
               });
               user.save(function(err, user) {
                   if (err) {
-                    console.log("Mongoose: ", err)
                       return res.status(500).json({
                           message: 'Internal server error'
                       });
                   }
-                  console.log("user: ", user);
                   var token = jwt.sign({
                     _id: user._id,
                     name: user.name,
@@ -251,19 +241,11 @@ router.post('/login', jsonParser, function(req, res) {
     if(!user) return res.status(400)
     user.validatePassword(password, function(err, isValid) {
       if(err) {
-        console.log("bcrypt error: ", err)
-        return res.status(400)
+        return res.status(400).json({message: 'Invalid token'})
       }
       if(!isValid) {
-        console.log('password incorrect')
         return res.status(400).json({message: 'Incorrect password'})
       }
-      console.log("user: ", {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        courses: user.courses
-      });
       var token = jwt.sign({
         _id: user._id,
         name: user.name,
@@ -318,7 +300,6 @@ router.put('/quiz', jsonParser, passport.authenticate('bearer', {session: false}
   if(!admin) return res.status(401).json({message: "only admin can alter course"});
 
   var quiz = req.body.quiz;
-  console.log("quiz to save: ", quiz);
   if(quiz.courses[0] === "undefined") quiz.courses[0] = {id: req.body.courseID};
   if(!quiz._id || quiz._id == null) {
     var newQuiz = new Quiz();
@@ -329,7 +310,6 @@ router.put('/quiz', jsonParser, passport.authenticate('bearer', {session: false}
     newQuiz.live = quiz.live
     newQuiz.save()
     .then(function(quiz) {
-      console.log("quiz id: ", quiz._id);
       return Course.findOne({_id: course._id}).populate({
                 path: 'quizzes',
                 select: '_id, title'
@@ -344,8 +324,7 @@ router.put('/quiz', jsonParser, passport.authenticate('bearer', {session: false}
       });
     })
     .then(function(state) {
-      console.log("quiz created, sending response...", state);
-      console.log("quiz id: ", state[0]._id);
+      console.log("quiz created, sending response...");
       return res.status(201).json(state);
     }).catch(function(err) {
       console.log("error: ", err);
@@ -363,32 +342,27 @@ router.put('/quiz', jsonParser, passport.authenticate('bearer', {session: false}
         console.log('Mongo error ', err)
         return res.status(500).json('Internal Server Error')
       }
-      console.log("quiz id: ", quiz._id);
-      console.log("quiz updated, sending response...", "quiz: ", quiz, "course: ", course);
+      console.log("quiz updated, sending response...");
       return res.status(201).json([quiz, course]);
     });
   }
 });
 
 router.delete('/quiz/:quizId/:courseId', passport.authenticate('bearer', {session:false}), function(req, res) {
-  console.log("token data: ", req.user, req.user.courses[0].admin);
   var course = Course.findOneAndUpdate({_id: req.params.courseId},
       { $pull: {
         quizzes: {$in: [req.params.quizId]}
       }
     }).exec()
     course.then(function(course) {
-      console.log("course quizzes: ", course.quizzes);
       return Quiz.remove({_id: req.params.quizId}).exec();
     })
     .then(function(quiz) {
-      console.log("quiz removed: ", quiz.result);
       return Quiz.findOne({_id: req.params.quizId}).exec()
     })
     .then(function(quiz){
       if(quiz) {
         throw new err;
-        console.log("quiz still there: ", quiz);
       }
     })
     .then(function() {
@@ -414,7 +388,6 @@ router.delete('/quiz/:quizId/:courseId', passport.authenticate('bearer', {sessio
 });
 
 router.post('/quiz/submit', passport.authenticate('bearer', {session:false}), jsonParser, function(req, res) {
-  // console.log("params ", req.params);
   // score
   let quizData = req.body.quizData;
   let score = quizData.map(question => {
@@ -430,8 +403,10 @@ router.post('/quiz/submit', passport.authenticate('bearer', {session:false}), js
   submission.of = req.body.quiz_Id;
   submission.save()
   .then(function(submission) {
-    console.log("quiz submitted");
-    return res.status(200).json({message: "quiz submitted", score: submission.score})
+    return res.status(200).json({
+      message: "quiz submitted",
+      score: submission.score,
+      attempt: submission})
   })
   .catch(function(err) {
     console.log("Mongo ERROR: ", err)
@@ -464,7 +439,6 @@ router.get('/lessons',
             console.log("error: ", err);
             res.status(500).json('Internal Server Error');
           } else {
-            console.log("data: ", data);
             res.status(200).json(data);
           }
       }
