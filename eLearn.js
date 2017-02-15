@@ -11,6 +11,7 @@ var Strategy = require('passport-http-bearer').Strategy
 var BoxSDK = require('box-node-sdk')
 var fs = require('fs')
 var path = require('path')
+var PDFDocument = require('pdfkit')
 
 var prettyjson = require('prettyjson')
 
@@ -225,6 +226,54 @@ router.get('/users', passport.authenticate('bearer', {session: false}), function
   return res.status(200).json({message: "Token validated"})
 })
 
+router.get('/users/certificate/:course/:token', function(req, res) {
+  if(req.params.token) {
+    jwt.verify(req.params.token, TOKENSECRET, function(err, decoded) {
+      if(err) {
+        console.log("err: ", err)
+        res.status(401).json({message: "unauthorized"})
+      } else {
+        var token = decoded;
+        var doc = new PDFDocument({layout: 'landscape'});
+        res.writeHead(200, {
+          'Content-Type': 'application/pdf',
+           'Access-Control-Allow-Origin': '*',
+           'Content-Disposition': 'inline; filename=Untitled.pdf'
+        });
+        doc.pipe(res)
+        doc.image('utilities/Certificate.jpg', (doc.page.width - 720)/2)
+        doc.font('Times-Roman')
+        doc.fontSize(30)
+        doc.text(token.name, {align: 'center'}, 250)
+        doc.fontSize(20)
+        doc.text(req.params.course, {align: 'center'}, 450)
+        doc.end()
+      }
+    })
+  } else {
+    res.status(401).json({message: "unauthorized"});
+  }
+})
+
+// router.get('/users/certificate', function(req, res) {
+//   // console.log("token data: ", req.user.name);
+//   var doc = new PDFDocument({layout: 'landscape'});
+//   res.writeHead(200, {
+//     'Content-Type': 'application/pdf',
+//      'Access-Control-Allow-Origin': '*',
+//      'Content-Disposition': 'inline; filename=Untitled.pdf'
+//   });
+//   doc.pipe(res)
+//   doc.image('utilities/Certificate.jpg', (doc.page.width - 720)/2)
+//   doc.font('Times-Roman')
+//   doc.fontSize(30)
+//   doc.text("user name here", {align: 'center'}, 250)
+//   doc.fontSize(20)
+//   doc.text("This Course", {align: 'center'}, 450)
+//   doc.end()
+// })
+
+
 router.post('/login', jsonParser, function(req, res) {
   console.log('elearn Login endpoint accessed')
   var password = req.body.password
@@ -271,6 +320,7 @@ router.post('/login', jsonParser, function(req, res) {
     return res.status(500).json({message: 'Internal server error'})
   });
 })
+
 
 router.get('/quiz/:quizId/:userId', passport.authenticate('bearer', {session:false}), function(req, res) {
   Quiz.find({_id: req.params.quizId}).exec()
