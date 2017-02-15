@@ -66,6 +66,12 @@ passport.use(new Strategy(
   }
 ))
 router.use(passport.initialize())
+router.use(express.static('build'));
+router.get('*', function(req, res) {
+  console.log("endpoint hit");
+  console.log(express.static('build'))
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
 
 // seed database, assume default user already created
 // var quizData = require('./quizData')
