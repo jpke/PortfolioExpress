@@ -4,9 +4,10 @@ var bcrypt = require('bcryptjs')
 
 // var Course = new Schema({
 //   course: {
-//     type: Schema.Types.ObjectId,
-//     ref: 'Courses'
-//   }
+//     _id: {
+//       type: Schema.Types.ObjectId,
+//       ref: 'Courses'
+//     }
 // })
 
 var UserSchema = new Schema({
@@ -22,7 +23,8 @@ var UserSchema = new Schema({
     type: String,
     required: true
   },
-  courses: [{type: Schema.Types.ObjectId, ref: 'Course'}]
+  courses: [{type: Schema.Types.ObjectId, ref: 'Course'}],
+  passed: [{type: Schema.Types.ObjectId, ref: 'SubmittedItem'}]
 })
 
 UserSchema.methods.validatePassword = function(password, callback) {
