@@ -12,8 +12,7 @@ var CourseSchema = new Schema({
     required: true
   }],
   lessonFolders: [{type: String, required: true}],
-  quizzes: [{type: Schema.Types.ObjectId, ref: 'Quiz'}],
-  enrollable: [{type: String}]
+  quizzes: [{type: Schema.Types.ObjectId, ref: 'Quiz'}]
 })
 
 var Course = mongoose.model('Course', CourseSchema)

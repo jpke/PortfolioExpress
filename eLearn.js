@@ -394,6 +394,31 @@ router.delete('/course/enrollable', jsonParser, passport.authenticate('bearer', 
   });
 });
 
+router.put('/course', jsonParser, passport.authenticate('bearer', {session: false}), function(req, res) {
+  var course = req.body.course;
+  var courseInToken = req.user.courses.find(function(courseInToken) {
+    if(courseInToken._id === course._id) return true;
+  });
+  var admin = courseInToken.admin.find(function(admin) {
+    if(admin === req.user._id) return true;
+  });
+  if(!admin) return res.status(401).json({message: "only admin can alter course"});
+  return Course.findOneAndUpdate({_id: course._id},
+    {$set: {name: course.name}},
+    {new: true})
+    .populate({
+      path: 'quizzes',
+      select: '_id, title'
+    }).exec()
+    .then(function(updatedCourse) {
+      return res.status(200).json({course: updatedCourse})
+    })
+    .catch(function(err) {
+      console.log('Mongo error ', err)
+      return res.status(500).json('Internal Server Error')
+    })
+});
+
 router.get('/quiz/:quizId/:userId', passport.authenticate('bearer', {session:false}), function(req, res) {
   Quiz.find({_id: req.params.quizId}).exec()
   .then(function(quiz) {
