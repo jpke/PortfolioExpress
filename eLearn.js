@@ -69,162 +69,80 @@ passport.use(new Strategy(
 router.use(passport.initialize())
 router.use(express.static('build'));
 
-// Quiz.find({}).exec().then(function(quiz) {
-//   console.log("quizzes: ", quiz);
-// })
-
-// seed database, assume default user already created
-// var quizData = require('./quizData')
-// var rQuiz = Quiz.find({}).remove().exec()
-// .then(function(){
-//   return Course.find({}).remove().exec();
-// })
-// .then(function() {
-//   return UserElearn.findOne({email: "jpearnest08@gmail.com"}).exec()
-// })
-// .then(function(user) {
-//   var course = new Course();
-//   course.name = "Default Course";
-//   course.admin = user._id;
-//   return course.save().then(function(course) {return [user, course]});
-// })
-// .then(function(state) {
-//   // console.log(state[0]._id, state[1].admin[0]);
-//   var user = state[0];
-//   var course = state[1];
-//   user.courses.push(course._id);
-//   return user.save().then(function(user) {
-//     state[0] = user;
-//     return state;
-//   });
-// })
-// .then(function(stateArray) {
-//   console.log("Course updated ", stateArray);
-// })
-// .catch(function(err) {
-//   console.log("error: ", err);
-// });
-
-// UserElearn.find({})
-//   .populate({
-//     path: 'courses',
-//     populate: {
-//       path: 'quizzes',
-//       // match: {name: "Default Course"},
-//       select: '_id, name'
-//     }
-//   })
-//   .exec()
-//   .then(function(user) {
-//     console.log("user courses: ", user);
-//     return
-//   })
-//   .catch(function(err) {
-//     console.log("error: ", err);
-//   });
-
-// Quiz.findOne({'submitted.user': '589672003c8e134ac1d00000'})
-// Quiz.find({})
-//   // .populate({
-//   //   path: 'submitted',
-//   //   match: {user: '589672003c8e134ac1d00000'},
-//   // })
-//   // .select('submitted')
-//   // .submitted
-//   // .find({user: "58992e51ade1017d808ce587"})
-//   // .where('score').equals(0)
-//   .exec()
-//   .then(function(quiz) {
-//     console.log('Quiz: ', quiz);
-//     return
-//   })
-//   .catch(function(err) {
-//     console.log("error: ", err);
-//   });
-
-  // Quiz.findOneAndUpdate({_id: "589672003c8e134ac1d93f59"},
-  //   {$push:
-  //     {submitted:
-  //       {
-  //         user: "589672003c8e134ac1d00000",
-  //         submitted: new Date,
-  //         score: 0,
-  //         content: quizData
-  //       }
-  //     }
-  //   }, function(err, post) {
-  //   if(err) {
-  //     console.log("Mongo ERROR: ", err)
-  //     // res.status(500).json('Internal Server Error')
-  //   } else {
-  //     console.log("quiz submitted");
-  //     // return res.status(200).json({message: "quiz submitted", score: score})
-  //   }
-  // });
-
-  // SubmittedItem.find({user: "58993c3c3e83498401234d0d", of: "589672003c8e134ac1d93f59"}).exec()
-  // .then(function(quiz) {
-  //   console.log('submitted quiz: ', quiz);
-  // })
-  // .catch(function(err) {
-  //   console.log("error: ", err);
-  // })
-
 router.post('/users', jsonParser, function(req,res) {
   var name = req.body.name
   var email = req.body.email
   var password = req.body.password
-  UserElearn.findOne({email: email}, function(err, user) {
-    if (err) {
-        return res.status(500).json({
-            message: 'Internal server error'
-        });
-    }
+  var enrolledCoursesUser = [], enrolledCoursesAdmin = [];
+  UserElearn.findOne({email: email}).exec()
+  .then(function(user) {
     if(user != null) {
-      return res.status(400).json({
-        message: "email already associated with an account"
+      throw "emailInUse";
+    }
+    return Enrollable.find({email: req.body.email}).exec()
+  })
+  .then(function(enroll) {
+    if(enroll) {
+      enroll.forEach(function(entry) {
+        enrolledCoursesUser.push(entry.course_id);
+        if(entry.admin) enrolledCoursesAdmin.push(entry.course_id);
       });
     }
-    bcrypt.genSalt(10, function(err, salt) {
-          if (err) {
-              return res.status(500).json({
-                  message: 'Internal server error'
-              });
+    return bcrypt.genSalt(10, function(err, salt) {
+      if(err) {
+        throw err;
+      }
+      return bcrypt.hash(password, salt, function(err, hash) {
+        if(err) {
+          throw err;
+        }
+        var user = new UserElearn()
+        user.name = name;
+        user.email = email;
+        user.password = hash;
+        if(enrolledCoursesUser) user.courses = enrolledCoursesUser;
+        console.log("new user: ", user);
+        user.save()
+        .then(function(user) {
+          console.log("user saved: ", user);
+          if(enrolledCoursesAdmin) {
+            return Promise.all(enrolledCoursesAdmin.map(function(course_id) {
+              return Course.findOneAndUpdate({_id: course_id},
+                {$push: {admin: user._id}}).exec();
+            }))
+            .then(function(courses) {
+              console.log("courses admin updated: ", courses);
+              return user;
+            })
+          } else {
+            return user
           }
-          bcrypt.hash(password, salt, function(err, hash) {
-              if (err) {
-                  return res.status(500).json({
-                      message: 'Internal server error'
-                  });
-              }
-              var user = new UserElearn({
-                  name: name,
-                  email: email,
-                  password: hash
-              });
-              user.save(function(err, user) {
-                  if (err) {
-                      return res.status(500).json({
-                          message: 'Internal server error'
-                      });
-                  }
-                  var token = jwt.sign({
-                    _id: user._id,
-                    name: user.name,
-                    email: user.email,
-                    courses: user.courses
-                  }, TOKENSECRET, {
-                    expiresIn: "24h"
-                  });
-                  return res.status(201).json({
-                    _id: user._id,
-                    name: user.name,
-                    courses: user.courses,
-                    token: token
-                  });
-              });
+        })
+        .then(function(user) {
+          var token = jwt.sign({
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            courses: user.courses
+          }, TOKENSECRET, {
+            expiresIn: "24h"
           });
+          return res.status(201).json({
+            _id: user._id,
+            name: user.name,
+            courses: user.courses,
+            token: token
+          });
+        })
       });
+    });
+  })
+  .catch(function(err) {
+    console.log("error: ", err);
+    if(err === "emailInUse") {
+      return res.status(400).json({message: "email already associated with an account"});
+    }
+    return res.status(500).json({message: 'Internal server error'});
   })
 })
 
@@ -450,8 +368,6 @@ router.put('/quiz', jsonParser, passport.authenticate('bearer', {session: false}
 
   var quiz = req.body.quiz;
   if(quiz.courses[0] === "undefined") quiz.courses[0] = {id: req.body.courseID};
-  console.log('quiz._id: ', quiz._id);
-  console.log(!quiz._id || quiz._id == null);
   if(!quiz._id || quiz._id == null) {
     var newQuiz = new Quiz();
     newQuiz.title = quiz.title;
