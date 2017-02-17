@@ -16,6 +16,7 @@ var PDFDocument = require('pdfkit')
 var prettyjson = require('prettyjson')
 
 var Course = require('./models/Course')
+var Enrollable = require('./models/Enrollable')
 var UserElearn = require('./models/UserElearn')
 var Quiz = require('./models/Quiz').Quiz
 var SubmittedItem = require('./models/SubmittedItem')
@@ -326,25 +327,66 @@ router.post('/login', jsonParser, function(req, res) {
   });
 })
 
-router.post('/course', jsonParser, passport.authenticate('bearer', {session: false}), function(req, res) {
-  var course = req.body.course;
-  var coursesInToken = req.user.courses.find(function(course) {
-    if(course._id === course._id) return true;
+router.get('/course/enrollable/:course_id', passport.authenticate('bearer', {session: false}), function(req, res) {
+  var course_id = req.params.course_id;
+  var courseInToken = req.user.courses.find(function(courseInToken) {
+    if(courseInToken._id === course_id) return true;
   });
-  var admin = coursesInToken.admin.find(function(admin) {
+  var admin = courseInToken.admin.find(function(admin) {
+    if(admin === req.user._id) return true;
+  });
+  if(!admin) return res.status(401).json({message: "only course admin can see enrolled users"});
+  Enrollable.find({course_id: course_id}).exec()
+  .then(function(enrollable) {
+    return res.status(200).json({enrollable: enrollable});
+  })
+  .catch(function(err) {
+    console.log('Mongo error ', err)
+    return res.status(500).json('Internal Server Error')
+  });
+});
+
+router.post('/course/enrollable', jsonParser, passport.authenticate('bearer', {session: false}), function(req, res) {
+  var course_id = req.body.course_id;
+  var courseInToken = req.user.courses.find(function(courseInToken) {
+    if(courseInToken._id === course_id) return true;
+  });
+  var admin = courseInToken.admin.find(function(admin) {
     if(admin === req.user._id) return true;
   });
   if(!admin) return res.status(401).json({message: "only admin can alter course"});
   var enrolled = new Enrollable();
   enrolled.email = req.body.email;
-  enrolled.course_id = req.body.course._id;
+  enrolled.course_id = course_id;
   enrolled.admin = req.body.admin;
   enrolled.save()
   .then(function(enrolled) {
-    return Enrollable.find({course_id: req.body.course._id}).exec();
+    return Enrollable.find({course_id: course_id}).exec();
   })
   .then(function(enrollable) {
-    return res.status(201).json({course: updatedCourse});
+    return res.status(201).json({enrollable: enrollable});
+  })
+  .catch(function(err) {
+    console.log('Mongo error ', err)
+    return res.status(500).json('Internal Server Error')
+  });
+});
+
+router.delete('/course/enrollable', jsonParser, passport.authenticate('bearer', {session: false}), function(req, res) {
+  var course_id = req.body.course_id;
+  var courseInToken = req.user.courses.find(function(courseInToken) {
+    if(courseInToken._id === course_id) return true;
+  });
+  var admin = courseInToken.admin.find(function(admin) {
+    if(admin === req.user._id) return true;
+  });
+  if(!admin) return res.status(401).json({message: "only admin can alter course"});
+  Enrollable.findOne({email: req.body.email, course_id: course_id}).remove().exec()
+  .then(function(removedUser) {
+    return Enrollable.find({course_id: course_id}).exec();
+  })
+  .then(function(enrollable) {
+    return res.status(200).json({enrollable: enrollable});
   })
   .catch(function(err) {
     console.log('Mongo error ', err)
