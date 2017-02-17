@@ -67,11 +67,10 @@ passport.use(new Strategy(
 ))
 router.use(passport.initialize())
 router.use(express.static('build'));
-router.get('*', function(req, res) {
-  console.log("endpoint hit");
-  console.log(express.static('build'))
-  res.sendFile(path.join(__dirname, 'build', 'index.html'));
-});
+
+// Quiz.find({}).exec().then(function(quiz) {
+//   console.log("quizzes: ", quiz);
+// })
 
 // seed database, assume default user already created
 // var quizData = require('./quizData')
@@ -327,6 +326,27 @@ router.post('/login', jsonParser, function(req, res) {
   });
 })
 
+router.put('/course', jsonParser, passport.authenticate('bearer', {session: false}), function(req, res) {
+  var course = req.body.course;
+  var coursesInToken = req.user.courses.find(function(course) {
+    if(course._id === course._id) return true;
+  });
+  var admin = coursesInToken.admin.find(function(admin) {
+    if(admin === req.user._id) return true;
+  });
+  if(!admin) return res.status(401).json({message: "only admin can alter course"});
+  Course.findOneAndUpdate({_id: course._id}, {
+    name: course.name,
+    enrollable: course.enrollable
+  }, {new: true, lean: true}, function(err, updatedCourse) {
+    if(err) {
+      console.log('Mongo error ', err)
+      return res.status(500).json('Internal Server Error')
+    }
+    updatedCourse.admin = true;
+    return res.status(200).json({course: updatedCourse});
+  });
+});
 
 router.get('/quiz/:quizId/:userId', passport.authenticate('bearer', {session:false}), function(req, res) {
   Quiz.find({_id: req.params.quizId}).exec()
@@ -359,6 +379,8 @@ router.put('/quiz', jsonParser, passport.authenticate('bearer', {session: false}
 
   var quiz = req.body.quiz;
   if(quiz.courses[0] === "undefined") quiz.courses[0] = {id: req.body.courseID};
+  console.log('quiz._id: ', quiz._id);
+  console.log(!quiz._id || quiz._id == null);
   if(!quiz._id || quiz._id == null) {
     var newQuiz = new Quiz();
     newQuiz.title = quiz.title;
@@ -395,13 +417,24 @@ router.put('/quiz', jsonParser, passport.authenticate('bearer', {session: false}
       items: quiz.items,
       minimumScore: quiz.minimumScore,
       live: quiz.live
-    }, {new: true}, function(err, quiz) {
+    }, {new: true, upsert: true}, function(err, quiz) {
       if(err) {
         console.log('Mongo error ', err)
         return res.status(500).json('Internal Server Error')
       }
       console.log("quiz updated, sending response...");
-      return res.status(201).json([quiz, course]);
+      Course.findOne({_id: course._id}).populate({
+                    path: 'quizzes',
+                    select: '_id, title'
+                  }).exec()
+      .then(function(course) {
+        course.admin = true;
+        return res.status(201).json([quiz, course]);
+      })
+      .catch(function(err) {
+        if(err) console.log("Mongo error: ", err);
+        return res.status(500).json('Internal Server Error');
+      });
     });
   }
 });
@@ -513,6 +546,7 @@ router.get('/lessons',
   {session:false}),
   function(req, res) {
     //box folder id is first arg
+    console.log("loading BOX lessons");
   box.folders.getItems(
       '18155048374',
       {
@@ -555,6 +589,12 @@ router.get(
         });
     })
 })
+
+router.get('*', function(req, res) {
+  console.log("endpoint hit");
+  console.log(express.static('build'))
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
 
 //for file upload- work in progress
 router.post('/lessons',
