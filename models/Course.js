@@ -1,14 +1,6 @@
 var mongoose = require('mongoose')
 var Schema = mongoose.Schema;
 
-// var User = new Schema({
-//   id: {
-//     type: Schema.Types.ObjectId,
-//     ref: 'UserElearn',
-//     required: true
-//   }
-// })
-
 var CourseSchema = new Schema({
   name: {
     type: String,

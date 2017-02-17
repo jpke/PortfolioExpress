@@ -326,7 +326,7 @@ router.post('/login', jsonParser, function(req, res) {
   });
 })
 
-router.put('/course', jsonParser, passport.authenticate('bearer', {session: false}), function(req, res) {
+router.post('/course', jsonParser, passport.authenticate('bearer', {session: false}), function(req, res) {
   var course = req.body.course;
   var coursesInToken = req.user.courses.find(function(course) {
     if(course._id === course._id) return true;
@@ -335,16 +335,20 @@ router.put('/course', jsonParser, passport.authenticate('bearer', {session: fals
     if(admin === req.user._id) return true;
   });
   if(!admin) return res.status(401).json({message: "only admin can alter course"});
-  Course.findOneAndUpdate({_id: course._id}, {
-    name: course.name,
-    enrollable: course.enrollable
-  }, {new: true, lean: true}, function(err, updatedCourse) {
-    if(err) {
-      console.log('Mongo error ', err)
-      return res.status(500).json('Internal Server Error')
-    }
-    updatedCourse.admin = true;
-    return res.status(200).json({course: updatedCourse});
+  var enrolled = new Enrollable();
+  enrolled.email = req.body.email;
+  enrolled.course_id = req.body.course._id;
+  enrolled.admin = req.body.admin;
+  enrolled.save()
+  .then(function(enrolled) {
+    return Enrollable.find({course_id: req.body.course._id}).exec();
+  })
+  .then(function(enrollable) {
+    return res.status(201).json({course: updatedCourse});
+  })
+  .catch(function(err) {
+    console.log('Mongo error ', err)
+    return res.status(500).json('Internal Server Error')
   });
 });
 
