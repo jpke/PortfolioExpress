@@ -161,10 +161,37 @@ router.post('/users', jsonParser, function(req,res) {
   })
 })
 
-router.get('/users', passport.authenticate('bearer', {session: false}), function(req, res) {
-  return res.status(200).json({message: "Token validated"})
+// router.get('/users', passport.authenticate('bearer', {session: false}), function(req, res) {
+//   return res.status(200).json({message: "Token validated"})
+// })
+
+router.put('/users', jsonParser, passport.authenticate('bearer', {session: false}), function(req, res) {
+  var course_id = req.body.course_id;
+  var courseInToken = req.user.courses.find(function(courseInToken) {
+    if(courseInToken._id === course_id) return true;
+  });
+  if(!courseInToken.admin) return res.status(401).json({message: "only course admin can delete users from course"});
+  UserElearn.findOneAndUpdate({email: req.body.email},
+    {$pull: {
+      courses: {$in: [course_id]}
+    }
+  }).exec()
+  .then(function() {
+    return UserElearn.find({courses: course_id}).exec()
+  })
+  .then(function(enrolled) {
+    return res.status(200).json({
+      enrolled: enrolled
+    })
+  })
+  .catch(function(err) {
+    console.log('Mongo error', err)
+    return res.status(500).json('Internal Server Error')
+  });
 })
 
+
+//render certificate of completion pdf, send to client
 router.get('/users/certificate/:course/:token', function(req, res) {
   if(req.params.token) {
     jwt.verify(req.params.token, TOKENSECRET, function(err, decoded) {
@@ -193,24 +220,6 @@ router.get('/users/certificate/:course/:token', function(req, res) {
     res.status(401).json({message: "unauthorized"});
   }
 })
-
-// router.get('/users/certificate', function(req, res) {
-//   // console.log("token data: ", req.user.name);
-//   var doc = new PDFDocument({layout: 'landscape'});
-//   res.writeHead(200, {
-//     'Content-Type': 'application/pdf',
-//      'Access-Control-Allow-Origin': '*',
-//      'Content-Disposition': 'inline; filename=Untitled.pdf'
-//   });
-//   doc.pipe(res)
-//   doc.image('utilities/Certificate.jpg', (doc.page.width - 720)/2)
-//   doc.font('Times-Roman')
-//   doc.fontSize(30)
-//   doc.text("user name here", {align: 'center'}, 250)
-//   doc.fontSize(20)
-//   doc.text("This Course", {align: 'center'}, 450)
-//   doc.end()
-// })
 
 
 router.post('/login', jsonParser, function(req, res) {
@@ -272,7 +281,16 @@ router.get('/course/enrollable/:course_id', passport.authenticate('bearer', {ses
   if(!courseInToken.admin) return res.status(401).json({message: "only course admin can see enrolled users"});
   Enrollable.find({course_id: course_id}).exec()
   .then(function(enrollable) {
-    return res.status(200).json({enrollable: enrollable});
+    return UserElearn.find({courses: course_id}).exec()
+    .then(function(enrolled) {
+      return [enrollable, enrolled];
+    })
+  })
+  .then(function(enrollArray) {
+    return res.status(200).json({
+      enrollable: enrollArray[0],
+      enrolled: enrollArray[1]
+    });
   })
   .catch(function(err) {
     console.log('Mongo error ', err)
