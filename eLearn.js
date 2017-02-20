@@ -105,7 +105,8 @@ router.post('/users', jsonParser, function(req,res) {
         user.save()
         .then(function(user) {
           console.log("user saved: ", user);
-          if(enrolledCoursesAdmin) {
+          console.log("enrolledCoursesAdmin: ", enrolledCoursesAdmin, enrolledCoursesAdmin == null, enrolledCoursesAdmin == []);
+          if(enrolledCoursesAdmin.length) {
             return Promise.all(enrolledCoursesAdmin.map(function(course_id) {
               return Course.findOneAndUpdate({_id: course_id},
                 {$push: {admin: user._id}}).exec();
@@ -119,6 +120,20 @@ router.post('/users', jsonParser, function(req,res) {
           }
         })
         .then(function(user) {
+          return UserElearn.findOne({_id: user._id})
+          .populate({
+            path: 'courses',
+            populate: {
+              path: 'quizzes',
+              select: '_id, title'
+            }
+          }).lean().exec();
+        })
+        .then(function(user) {
+          var courses = user.courses.map((course) => {
+            course.admin = course.admin.toString().indexOf(user._id) > -1;
+            return course;
+          });
           var token = jwt.sign({
             _id: user._id,
             name: user.name,
@@ -130,7 +145,7 @@ router.post('/users', jsonParser, function(req,res) {
           return res.status(201).json({
             _id: user._id,
             name: user.name,
-            courses: user.courses,
+            courses: courses,
             token: token
           });
         })
@@ -199,7 +214,6 @@ router.get('/users/certificate/:course/:token', function(req, res) {
 
 
 router.post('/login', jsonParser, function(req, res) {
-  console.log('elearn Login endpoint accessed')
   var password = req.body.password
   UserElearn.findOne({email: req.body.email})
   .populate({
@@ -228,19 +242,24 @@ router.post('/login', jsonParser, function(req, res) {
       }, TOKENSECRET, {
         expiresIn: "24h"
       })
-      console.log('validated response sent')
       // var cookies = new Cookies(req,res);
       // cookies.set("token", token, {httpOnly: false});
+      user = user.toObject();
+      var courses = user.courses.map((course) => {
+        course.admin = course.admin.toString().indexOf(user._id) > -1;
+        return course;
+      })
       return res.status(302).json({
         _id: user._id,
         name: user.name,
-        courses: user.courses,
+        courses: courses,
         passed: user.passed,
         token: token
       });
     })
   })
   .catch(function(err) {
+    console.log("error: ", err);
     return res.status(500).json({message: 'Internal server error'})
   });
 })
@@ -250,10 +269,7 @@ router.get('/course/enrollable/:course_id', passport.authenticate('bearer', {ses
   var courseInToken = req.user.courses.find(function(courseInToken) {
     if(courseInToken._id === course_id) return true;
   });
-  var admin = courseInToken.admin.find(function(admin) {
-    if(admin === req.user._id) return true;
-  });
-  if(!admin) return res.status(401).json({message: "only course admin can see enrolled users"});
+  if(!courseInToken.admin) return res.status(401).json({message: "only course admin can see enrolled users"});
   Enrollable.find({course_id: course_id}).exec()
   .then(function(enrollable) {
     return res.status(200).json({enrollable: enrollable});
@@ -269,10 +285,7 @@ router.post('/course/enrollable', jsonParser, passport.authenticate('bearer', {s
   var courseInToken = req.user.courses.find(function(courseInToken) {
     if(courseInToken._id === course_id) return true;
   });
-  var admin = courseInToken.admin.find(function(admin) {
-    if(admin === req.user._id) return true;
-  });
-  if(!admin) return res.status(401).json({message: "only admin can alter course"});
+  if(!courseInToken.admin) return res.status(401).json({message: "only admin can alter course"});
   var enrolled = new Enrollable();
   enrolled.email = req.body.email;
   enrolled.course_id = course_id;
@@ -295,10 +308,7 @@ router.delete('/course/enrollable', jsonParser, passport.authenticate('bearer', 
   var courseInToken = req.user.courses.find(function(courseInToken) {
     if(courseInToken._id === course_id) return true;
   });
-  var admin = courseInToken.admin.find(function(admin) {
-    if(admin === req.user._id) return true;
-  });
-  if(!admin) return res.status(401).json({message: "only admin can alter course"});
+  if(!courseInToken.admin) return res.status(401).json({message: "only admin can alter course"});
   Enrollable.findOne({email: req.body.email, course_id: course_id}).remove().exec()
   .then(function(removedUser) {
     return Enrollable.find({course_id: course_id}).exec();
@@ -317,10 +327,7 @@ router.put('/course', jsonParser, passport.authenticate('bearer', {session: fals
   var courseInToken = req.user.courses.find(function(courseInToken) {
     if(courseInToken._id === course._id) return true;
   });
-  var admin = courseInToken.admin.find(function(admin) {
-    if(admin === req.user._id) return true;
-  });
-  if(!admin) return res.status(401).json({message: "only admin can alter course"});
+  if(!courseInToken.admin) return res.status(401).json({message: "only admin can alter course"});
   return Course.findOneAndUpdate({_id: course._id},
     {$set: {name: course.name}},
     {new: true})
@@ -361,10 +368,7 @@ router.put('/quiz', jsonParser, passport.authenticate('bearer', {session: false}
   var course = req.user.courses.find(function(course) {
     if(course._id === req.body.courseID) return true;
   });
-  var admin = course.admin.find(function(admin) {
-    if(admin === req.user._id) return true;
-  });
-  if(!admin) return res.status(401).json({message: "only admin can alter course"});
+  if(!course.admin) return res.status(401).json({message: "only admin can alter course"});
 
   var quiz = req.body.quiz;
   if(quiz.courses[0] === "undefined") quiz.courses[0] = {id: req.body.courseID};
@@ -427,6 +431,10 @@ router.put('/quiz', jsonParser, passport.authenticate('bearer', {session: false}
 });
 
 router.delete('/quiz/:quizId/:courseId', passport.authenticate('bearer', {session:false}), function(req, res) {
+  var courseInToken = req.user.courses.find(function(course) {
+    if(course._id === req.params.courseId) return true;
+  });
+  if(!courseInToken.admin) return res.status(401).json({message: "only admin can alter course"});
   var course = Course.findOneAndUpdate({_id: req.params.courseId},
       { $pull: {
         quizzes: {$in: [req.params.quizId]}
@@ -520,14 +528,6 @@ router.post('/quiz/submit', passport.authenticate('bearer', {session:false}), js
   })
 })
 
-router.delete('/quiz', passport.authenticate('bearer', {session:false}), jsonParser, function(req, res) {
-  Quiz.remove({_id: req.body._id}, function(err, post) {
-    if(err) res.status(501).json({"message": "internal server error"});
-
-    res.status(200).json("quiz deleted");
-  })
-})
-
 router.get('/lessons',
   passport.authenticate('bearer',
   {session:false}),
@@ -578,8 +578,6 @@ router.get(
 })
 
 router.get('*', function(req, res) {
-  console.log("endpoint hit");
-  console.log(express.static('build'))
   res.sendFile(path.join(__dirname, 'build', 'index.html'));
 });
 
