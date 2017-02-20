@@ -22,7 +22,8 @@ var Quiz = require('./models/Quiz').Quiz
 var SubmittedItem = require('./models/SubmittedItem')
 
 require("dotenv").config({silent: true});
-var TOKENSECRET = process.env.SECRET
+var ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+var TOKENSECRET = process.env.SECRET;
 var KID = process.env.KID;
 var CLIENT_ID = process.env.BOX_CLIENT_ID;
 var CLIENT_SECRET = process.env.BOX_CLIENT_SECRET;
@@ -171,6 +172,7 @@ router.put('/users', jsonParser, passport.authenticate('bearer', {session: false
     if(courseInToken._id === course_id) return true;
   });
   if(!courseInToken.admin) return res.status(401).json({message: "only course admin can delete users from course"});
+  if(req.body.email === ADMIN_EMAIL) return res.status(401).json({message: 'Unable to delete site admin from course'});
   UserElearn.findOneAndUpdate({email: req.body.email},
     {$pull: {
       courses: {$in: [course_id]}
