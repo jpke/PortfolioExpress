@@ -10,6 +10,8 @@ var bcrypt = require('bcryptjs')
 var Strategy = require('passport-http-bearer').Strategy
 var BoxSDK = require('box-node-sdk')
 var fs = require('fs')
+var formidable = require('formidable')
+var util = require('util')
 var path = require('path')
 var PDFDocument = require('pdfkit')
 
@@ -604,8 +606,26 @@ router.get('*', function(req, res) {
 //for file upload- work in progress
 router.post('/lessons',
   function(req, res) {
-    console.log("file?: ", req.post);
-    res.status(201);
+    var form = new formidable.IncomingForm();
+    form.multiples = true;
+    form.uploadDir = path.join(__dirname);
+    // form.on('file', function(field, file) {
+    //   fs.rename(file.path, path.join(form.uploadDir, file.name));
+    // });
+    // form.on('error', function(err) {
+    //   console.log('Error: ', err);
+    // })
+    // form.on('end', function() {
+    //   res.end('success');
+    // });
+    // form.parse(req);
+    form.parse(req, function(err, fields, files) {
+      console.log(files);
+      res.writeHead(200, {'content-type': 'text/plain'});
+      res.write('received upload:\n\n');
+      res.end(util.inspect({fields: fields, files: files}));
+    });
+    // res.status(200).json({message: "file upload endpoint accessed"});
   }
 )
 
