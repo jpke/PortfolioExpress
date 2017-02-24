@@ -305,7 +305,7 @@ router.get('/course/enrollable/:course_id', passport.authenticate('bearer', {ses
   if(!courseInToken.admin) return res.status(401).json({message: "only course admin can see enrolled users"});
   Enrollable.find({course_id: course_id}).exec()
   .then(function(enrollable) {
-    return UserElearn.find({courses: course_id}).exec()
+    return UserElearn.find({courses: course_id}).select('_id name email').exec()
     .then(function(enrolled) {
       return [enrollable, enrolled];
     })
