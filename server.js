@@ -6,6 +6,7 @@ var prettyjson = require('prettyjson')
 var blog = require('./blog')
 var medReminder = require('./medReminder')
 var eLearn = require('./eLearn')
+// var wp = require('./wp')
 
 require("dotenv").config({silent: true});
 var DATABASE_URI = process.env.DATABASE_URI
@@ -16,6 +17,7 @@ app.use(cors());
 app.use('/blog', blog)
 app.use('/med', medReminder)
 app.use('/elearn', eLearn)
+// app.use('/wp', wp)
 
 
 mongoose.Promise = global.Promise;
