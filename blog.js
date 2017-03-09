@@ -89,12 +89,15 @@ router.get('/users', passport.authenticate('bearer', {session: false}), function
 })
 
 router.post('/login', jsonParser, function(req, res) {
-  console.log('Login endpoint accessed')
+  console.log('Login endpoint accessed here')
   var password = req.body.password
   User.findOne({email: req.body.email}, function(err, user) {
-    console.log('return from mongo', user)
+    console.log('return from mongo', user, !user)
     if(err) return res.status(500).json({message: 'Internal server error'})
-    if(!user) return res.status(400)
+    if(!user) {
+      console.log("this ran")
+      return res.status(400);
+    }
     user.validatePassword(password, function(err, isValid) {
       if(err) {
         console.log("bcrypt error: ", err)
