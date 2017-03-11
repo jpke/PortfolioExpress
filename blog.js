@@ -101,7 +101,7 @@ router.post('/login', jsonParser, function(req, res) {
     user.validatePassword(password, function(err, isValid) {
       if(err) {
         console.log("bcrypt error: ", err)
-        return res.status(400)
+        return res.status(400).json({message: "Internal server error"});
       }
       if(!isValid) {
         console.log('password incorrect')

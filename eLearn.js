@@ -1,7 +1,7 @@
 var express = require('express')
 var router = express.Router()
 var bodyParser = require('body-parser')
-// var cookieParser = require('cookie-parser')
+var cookieParser = require('cookie-parser')
 var mongoose = require('mongoose')
 mongoose.Promise = global.Promise;
 var jwt = require('jsonwebtoken')
@@ -74,6 +74,9 @@ router.use(passport.initialize())
 
 //serve files form build folder
 router.use(express.static('build'));
+
+//parse cookies
+router.use(cookieParser());
 
 //register new user
 //requires name, email and password in request body
@@ -269,14 +272,12 @@ router.post('/login', jsonParser, function(req, res) {
       }, TOKENSECRET, {
         expiresIn: "24h"
       })
-      // var cookies = new Cookies(req,res);
-      // cookies.set("token", token, {httpOnly: false});
       user = user.toObject();
       var courses = user.courses.map((course) => {
         course.admin = course.admin.toString().indexOf(user._id) > -1;
         return course;
       })
-      return res.status(200).json({
+      return res.status(200).cookie({credential: token}).json({
         _id: user._id,
         name: user.name,
         courses: courses,
@@ -297,7 +298,9 @@ router.post('/login', jsonParser, function(req, res) {
 //returns status 200 with list of enrolled users and enrollable unregistered user emails
 //returns status 401 if request is not made by course admin
 //returns status 500 for server or database error
-router.get('/course/enrollable/:course_id', passport.authenticate('bearer', {session: false}), function(req, res) {
+router.get('/course/enrollable/:course_id',
+passport.authenticate('bearer', {session: false}), function(req, res) {
+  console.log("cookies in request: ", req.cookies);
   var course_id = req.params.course_id;
   var courseInToken = req.user.courses.find(function(courseInToken) {
     if(courseInToken._id === course_id) return true;
@@ -676,6 +679,8 @@ router.get('*', function(req, res) {
 //for file upload- work in progress
 router.post('/lessons',
   function(req, res) {
+    console.log(req.body) // form fields
+    console.log("files: ", req.files) // form files
     var form = new formidable.IncomingForm();
     form.multiples = true;
     form.uploadDir = path.join(__dirname);
@@ -690,10 +695,8 @@ router.post('/lessons',
     // });
     // form.parse(req);
     form.parse(req, function(err, fields, files) {
-      console.log(files);
-      res.writeHead(200, {'content-type': 'text/plain'});
-      res.write('received upload:\n\n');
-      res.end(util.inspect({fields: fields, files: files}));
+      console.log("parsed files: ", files);
+      res.status(200).json({files: req.files || "undefined"});
     });
     // res.status(200).json({message: "file upload endpoint accessed"});
   }
