@@ -676,29 +676,47 @@ router.get('*', function(req, res) {
   res.sendFile(path.join(__dirname, 'build', 'index.html'));
 });
 
-//for file upload- work in progress
+//for file upload
 router.post('/lessons',
+  passport.authenticate('bearer', {session:false}),
   function(req, res) {
     console.log(req.body) // form fields
     console.log("files: ", req.files) // form files
     var form = new formidable.IncomingForm();
     form.multiples = true;
     form.uploadDir = path.join(__dirname);
-    // form.on('file', function(field, file) {
-    //   fs.rename(file.path, path.join(form.uploadDir, file.name));
-    // });
-    // form.on('error', function(err) {
-    //   console.log('Error: ', err);
-    // })
-    // form.on('end', function() {
-    //   res.end('success');
-    // });
-    // form.parse(req);
     form.parse(req, function(err, fields, files) {
       console.log("parsed files: ", files);
-      res.status(200).json({files: req.files || "undefined"});
+      console.log("parsed files: ", files.file.path);
+      var stream = fs.createReadStream(files.file.path);
+      box.files.uploadFile('18155048374', files.file.name, stream, function() {
+        if(err) {
+          console.log("box error: ", err);
+          return res.status(500).json('Internal Server Error');
+        }
+        res.status(200).json(files);
+        fs.unlink(files.file.path, function(err) {
+          if(err) console.log("file delete error: ", err);
+        })
+      })
     });
-    // res.status(200).json({message: "file upload endpoint accessed"});
+  }
+)
+
+router.delete('/lessons/:courseID/:lessonID',
+  passport.authenticate('bearer', {session:false}),
+  function(req,res) {
+    var courseInToken = req.user.courses.find(function(course) {
+      if(course._id === req.params.courseID) return true;
+    });
+    if(!courseInToken.admin) return res.status(401).json({message: "only admin can alter course"});
+    box.files.delete(req.params.lessonID, function(err) {
+      if(err) {
+        console.log("box error: ", err);
+        return res.status(500).json('Internal Server Error');
+      }
+      res.status(200).json("Lesson " + req.params.lessonID + " deleted");
+    })
   }
 )
 
