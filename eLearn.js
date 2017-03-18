@@ -680,8 +680,6 @@ router.get('*', function(req, res) {
 router.post('/lessons',
   passport.authenticate('bearer', {session:false}),
   function(req, res) {
-    console.log(req.body) // form fields
-    console.log("files: ", req.files) // form files
     var form = new formidable.IncomingForm();
     form.multiples = true;
     form.uploadDir = path.join(__dirname);
